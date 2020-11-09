@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:id="@+id/t_station"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:layout_marginTop="16dp"
+        android:text="檢測站:"
+        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/t_accept_qty" />
+
+    <TextView
+        android:id="@+id/t_accept_qty"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:layout_marginTop="8dp"
+        android:text="允收數: "
+        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+        android:textColor="@color/colorAccent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/t_pn_dmc" />
+
+    <TextView
+        android:id="@+id/t_display"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:layout_marginTop="16dp"
+        android:text="顯示面:"
+        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/t_station" />
+
+    <TextView
+        android:id="@+id/t_user"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:layout_marginTop="2dp"
+        android:text="許証皓 : 013476 "
+        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/t_pn_dmc"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:layout_marginTop="2dp"
+        android:text="料號: \n條碼: "
+        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/t_user" />
+
+    <Button
+        android:focusable="false"
+
+        android:id="@+id/b_display"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        app:layout_constraintBottom_toBottomOf="@+id/t_display"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/t_display"
+        app:layout_constraintTop_toTopOf="@+id/t_display" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_station"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        app:layout_constraintBottom_toBottomOf="@+id/t_station"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toEndOf="@+id/t_station"
+        app:layout_constraintTop_toTopOf="@+id/t_station" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_history"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="歷史\n紀錄"
+        app:layout_constraintEnd_toStartOf="@+id/b_upload_state"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/b_turn_left" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_upload_state"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="1dp"
+        android:layout_marginEnd="1dp"
+        android:text="上傳\n狀況"
+        app:layout_constraintEnd_toStartOf="@+id/b_blue"
+        app:layout_constraintStart_toEndOf="@+id/b_history"
+        app:layout_constraintTop_toTopOf="@+id/b_history" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_blue"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="藍芽\n配對"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/b_upload_state"
+        app:layout_constraintTop_toTopOf="@+id/b_upload_state" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_search_pn"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="批號\n搜尋"
+        app:layout_constraintEnd_toStartOf="@+id/b_mission_check"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/b_history" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_mission_check"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="1dp"
+        android:layout_marginEnd="1dp"
+        android:text="漏刷\n檢查"
+        app:layout_constraintEnd_toStartOf="@+id/b_test_test"
+        app:layout_constraintStart_toEndOf="@+id/b_search_pn"
+        app:layout_constraintTop_toTopOf="@+id/b_search_pn" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_test_test"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="測試\n測試"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/b_mission_check"
+        app:layout_constraintTop_toTopOf="@+id/b_mission_check" />
+
+    <Button
+        android:id="@+id/b_turn_display"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:focusable="false"
+        android:text="TOP"
+        app:layout_constraintBottom_toBottomOf="@+id/t_tb"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/t_tb"
+        app:layout_constraintTop_toTopOf="@+id/t_tb" />
+
+    <TextView
+        android:id="@+id/t_tb"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="16dp"
+        android:text="T/B:"
+        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/t_display" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_turn_left"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="1dp"
+        android:text="左旋"
+        app:layout_constraintEnd_toStartOf="@+id/b_turn_right"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/b_turn_display" />
+
+    <Button
+        android:focusable="false"
+        android:id="@+id/b_turn_right"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="1dp"
+        android:text="右璇"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/b_turn_left"
+        app:layout_constraintTop_toTopOf="@+id/b_turn_left" />
+</androidx.constraintlayout.widget.ConstraintLayout>
