@@ -9,6 +9,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.boardtek.appcenter.AppCenter
 import com.boardtek.appcenter.NetworkInformation
 import com.github.kittinunf.fuel.httpPost
+import com.night.dmcscrapped.data.db.MyRoomDB
 import com.night.dmcscrapped.gen.P
 import com.night.dmcscrapped.gen.Repository
 import kotlinx.coroutines.Dispatchers
@@ -76,8 +77,17 @@ class ExampleInstrumentedTest {
                     "MAC" to NetworkInformation.macAddress.also { Log.d("@@@MAC", it ) },
                     "setDate" to P.getAppCenterTime()
                 )
-                repository.loadCheckPhoto(params)
+//                repository.loadCheckPhoto(params)
             }
+        }
+    }
+
+    @Test
+    fun TESTtt(){
+        MainScope().launch(Dispatchers.Default) {
+            val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+            val t = MyRoomDB.getDatabase(appContext).dao().haveUploadRecord()
+            Log.d("@@@", "${t}")
         }
     }
 

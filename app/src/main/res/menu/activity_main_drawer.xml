@@ -5,11 +5,12 @@
     <item android:title="@string/controller">
         <menu>
             <item android:id="@+id/menu_language"
+                android:visible="false"
                 android:title="@string/language" />
 
             <item android:id="@+id/menu_offline"
                 android:title="@string/offline"
-                android:visible="true"
+                android:visible="false"
                 app:actionLayout="@layout/switcher"/>
 
 
@@ -22,6 +23,9 @@
                 android:title="@string/action_debug"
                 android:visible="true"
                 app:actionLayout="@layout/switcher"/>
+
+            <item android:id="@+id/data_refresh"
+                android:title="更新資料" />
 
             <item android:id="@+id/app_info"
                 android:title="@string/app_info" />

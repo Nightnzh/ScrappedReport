@@ -2,12 +2,11 @@ package com.night.dmcscrapped.data.model
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-
-
 //報廢
 @Entity(tableName = "dmcScrappedRecord")
 data class DmcScrappedRecord(
     @PrimaryKey(autoGenerate = true) var sn: Int? = null,
+    var pn : String?,
     val infoId: String,
     val ln: String,
     var optionId: String,
@@ -17,7 +16,7 @@ data class DmcScrappedRecord(
     var uName: String?,
     var uSn: String,
     var gSn: String?,
-    var isUpload:Boolean?,
+//    var isUpload:Boolean?,
     var isTestData:Boolean?,
     var sSn : Int?,
 )
@@ -30,6 +29,7 @@ data class DmcScrappedRecord(
 @Entity(tableName = "log")
 data class MyLog(
     @PrimaryKey(autoGenerate = true) var sn:Int? = null,
+    val pn : String?,
     var state: Int,
     val infoId: String,
     val ln: String,

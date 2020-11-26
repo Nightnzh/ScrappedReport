@@ -2,20 +2,27 @@ package com.night.dmcscrapped.gen
 
 import com.boardtek.appcenter.AppCenter
 import com.boardtek.appcenter.NetworkInformation
+import com.night.dmcscrapped.data.model.PlateInfo
 import com.night.dmcscrapped.data.model.ROptionItem
 
 class P {
     companion object {
 
-        var isTest = true //測試模式
+        var isTest = false //測試模式
 
         var isOffline = false  //離線
 
         var isActionDebug = true //ActionDebug
 
+        var pn : String?= null
+
+        var plateInfo : PlateInfo? = null
+
         var dmcCode : String?= null
 
-        var infoId:String? = null  //InfoId
+        var infoId : String? = null  //InfoId
+
+        var defaultDisplay = 0
 
         var display = 0   //單報正反面 0=>預設 1=>正面 2=>反面
 

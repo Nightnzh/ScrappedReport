@@ -1,9 +1,13 @@
 package com.night.dmcscrapped.ui.main
 
 import android.Manifest
+import android.app.Application
 import android.bluetooth.*
+import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.ColorFilter
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -16,17 +20,24 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+import androidx.core.text.HtmlCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.boardtek.appcenter.AppCenter
 import com.boardtek.appcenter.NetworkInformation
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.Transformation
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.night.dmcscrapped.ui.scrapedoption.ScrappedOptionAlert
 import com.night.dmcscrapped.R
+import com.night.dmcscrapped.data.db.MyRoomDB
 import com.night.dmcscrapped.data.model.ActionDebug
 import com.night.dmcscrapped.data.model.DmcScrappedRecord
 import com.night.dmcscrapped.data.model.PlateInfo
@@ -34,18 +45,20 @@ import com.night.dmcscrapped.data.model.ROptionItem
 import com.night.dmcscrapped.databinding.*
 import com.night.dmcscrapped.gen.P
 import com.night.dmcscrapped.ui.Gui
+import com.night.dmcscrapped.ui.bluetooth.BluetoothDialogAlert
 import com.night.dmcscrapped.ui.dmcHistory.HistoryDialogFragment
 import com.night.dmcscrapped.ui.syncstate.SyncStateDialogFragment
 import com.night.dmcscrapped.units.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.night.dmcscrapped.work.SyncWork
+import kotlinx.coroutines.*
 import java.util.*
 
 
 class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemClickListener,
     CompoundButton.OnCheckedChangeListener {
+
+
+    private val tempOpen = "tempOpen"
 
     private lateinit var mainBinding: ActivityMainBinding
     private lateinit var drawerHeaderBinding: NavHeaderMainBinding
@@ -54,6 +67,7 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
     private lateinit var vm: MainViewModel
     private lateinit var gui: Gui
     private lateinit var scrappedAlert: ScrappedOptionAlert
+
 
     private val historyDialogFragment by lazy {
         HistoryDialogFragment(this)
@@ -65,15 +79,46 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        AppCenter.init(this)
         vm = ViewModelProvider(this).get(MainViewModel::class.java)
+        requestPermission()
         init()
         setContentView(mainBinding.root)
-        requestPermission()
         plateBinding.recycler.setHasFixedSize(true)
+
 
         //圖片
         vm.plateMutableLiveData.observe(this) { plateInfo ->
+
+            if (plateInfo == null) {
+                mainBinding.includeMain.includeOption.tWaringMsg.visibility = View.GONE
+                mainBinding.includeMain.includePanel.imageView.visibility = View.INVISIBLE
+                optionItemBinding.tTb.visibility = View.GONE
+                optionItemBinding.bTurnDisplay.visibility = View.GONE
+                optionItemBinding.bTurnLeft.visibility = View.GONE
+                optionItemBinding.bTurnRight.visibility = View.GONE
+            }
             plateInfo?.let {
+
+                mainBinding.includeMain.includePanel.imageView.visibility = View.VISIBLE
+                optionItemBinding.tTb.visibility = View.VISIBLE
+                optionItemBinding.bTurnDisplay.visibility = View.VISIBLE
+                optionItemBinding.bTurnLeft.visibility = View.VISIBLE
+                optionItemBinding.bTurnRight.visibility = View.VISIBLE
+
+                //750007E 不可再FQC-2貼上黑色貼紙
+                if (plateInfo.pn.contains("750007E")) {
+                    gui.showWaringDialog(
+                        HtmlCompat.fromHtml(
+                            "此類料號(<font color='#020887'>750007E</font>)在FQC-2站不可貼上黑色貼紙。<br><br> This PN item like <font color='#020887'>750007E</font> in 'FQC-2' station can't be labeled black sticker.",
+                            HtmlCompat.FROM_HTML_MODE_COMPACT
+                        )
+                    )
+                    mainBinding.includeMain.includeOption.tWaringMsg.visibility = View.VISIBLE
+                } else {
+                    mainBinding.includeMain.includeOption.tWaringMsg.visibility = View.GONE
+                }
+
                 //初始化，正反面與角度
                 val imgName = when (P.display) {
                     0, 1 -> plateInfo.pic_top_name
@@ -86,7 +131,9 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                         imgName,
                         plateBinding.root.width,
                         plateBinding.root.height,
-                        P.displayDegree
+                        P.display,
+                        P.displayDegree,
+                        plateInfo
                     )
                     if (bitmap == null) {
                         Toast.makeText(this, "圖片讀取失敗", Toast.LENGTH_LONG).show()
@@ -122,8 +169,16 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                         val sAdapter = SingleReportAdapter(it, dmcScrappedRecordList)
                         plateBinding.recycler.adapter = sAdapter
                     }
+            }
+        }
 
-
+        //同步為上傳log數量
+        vm.synCount.observe(this) {
+            if (it == 0) {
+                optionItemBinding.tSyncCount.isVisible = false
+            } else {
+                optionItemBinding.tSyncCount.isVisible = true
+                optionItemBinding.tSyncCount.text = "$it"
             }
         }
 
@@ -163,8 +218,10 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
             override fun run() {
                 runOnUiThread {
                     getString(R.string.system_time)
-                    drawerHeaderBinding.tHeaderSystemTime.text =
-                        "${getString(R.string.system_time)}:\n${P.getAppCenterTime()}"
+                    if (P.getAppCenterTime() != null) {
+                        drawerHeaderBinding.tHeaderSystemTime.text =
+                            "${getString(R.string.system_time)}:\n${P.getAppCenterTime()}"
+                    }
                 }
             }
         }, 0, 1000)
@@ -195,8 +252,23 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                 setOnCheckedChangeListener(this@MainActivity)
             }
         }
+        mainBinding.navView.menu.findItem(R.id.data_refresh).apply {
+            setOnMenuItemClickListener(this@MainActivity)
+        }
 
-        optionItemBinding.bDisplay.text = vm.displaySurface[P.display]
+        //開發人員選項
+        if (AppCenter.depSn == 60 || AppCenter.depSn == 156) {
+            mainBinding.navView.menu.findItem(R.id.menu_test_mode).isVisible = true
+            mainBinding.navView.menu.findItem(R.id.menu_action).isVisible = true
+        } else {
+            mainBinding.navView.menu.findItem(R.id.menu_test_mode).isVisible = false
+            mainBinding.navView.menu.findItem(R.id.menu_action).isVisible = false
+        }
+
+        optionItemBinding.tSyncCount.bringToFront()
+        optionItemBinding.tUser.text = "${AppCenter.uName} : ${AppCenter.uId}"
+
+//        optionItemBinding.bDisplay.text = vm.displaySurface[P.display]
         //設定右邊選項按鈕事件
         setUpOptionClick()
     }
@@ -254,64 +326,113 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                 else -> 2
             }
             MainScope().launch {
+                //單報(pcs 優先)
                 dmcScrappedRecordList.find { it.panel == panel.toString() }?.let {
                     val rOptionItem =
                         withContext(Dispatchers.Default) { vm.getROption(it.optionId) }
-                    setScrappedUI(it, rOptionItem)
+                    setScrappedUI(rOptionItem)
+                    scrappedReportItemBinding.root.setOnClickListener { _ ->
+                        if (it.gSn != P.station.toString()) {
+                            AlertDialog.Builder(this@MainActivity).setTitle("不同站別更改報廢請找課長或主管協助!!")
+                                .setPositiveButton(getString(R.string.ok), null).show()
+                            return@setOnClickListener
+                        }
+                        scrappedAlert.myShow(
+                            supportFragmentManager,
+                            null,
+                            sPosition,
+                            rOptionItem,
+                            it,
+                            P.station.toString()
+                        )
+                    }
+                    return@launch
+                }
+                //單報(pcs 優先) 沒此面找另一面
+                val tPanel = if (panel == 0) 1 else 0
+                dmcScrappedRecordList.find { it.panel == tPanel.toString() }?.let {
+                    val rOptionItem =
+                        withContext(Dispatchers.Default) { vm.getROption(it.optionId) }
+                    setScrappedUI(rOptionItem)
+                    scrappedReportItemBinding.root.setOnClickListener {
+                        gui.showWaringDialog("此報廢紀錄在另一面!!")
+                    }
+                    return@launch
+                }
+
+                //片報
+                dmcScrappedRecordList.find {
+                    it.optionId == "225" || it.optionId == "227"
+                }?.let {
+                    val rOptionItem =
+                        withContext(Dispatchers.Default) { vm.getROption(it.optionId) }
+                    setScrappedUI(rOptionItem)
                     scrappedReportItemBinding.root.setOnClickListener { _ ->
                         scrappedAlert.myShow(
                             supportFragmentManager,
                             null,
                             sPosition,
                             rOptionItem,
-                            it
+                            it,
+                            P.station.toString()
                         )
                     }
                     return@launch
                 }
-                val tPanel = if (panel == 0) 1 else 0
-                dmcScrappedRecordList.find { it.panel == tPanel.toString() }?.let {
+
+                //超允(後端配置判斷)
+                dmcScrappedRecordList.find { it.optionId == "224" }?.let {
                     val rOptionItem =
                         withContext(Dispatchers.Default) { vm.getROption(it.optionId) }
-                    setScrappedUI(it, rOptionItem)
+                    setScrappedUI(rOptionItem)
                     scrappedReportItemBinding.root.setOnClickListener {
-                        gui.showWaringDialog("此報廢紀錄在背面!!")
+                        gui.showWaringDialog("系統設置不可修改")
                     }
                     return@launch
                 }
 
-                dmcScrappedRecordList.find { it.panel == "2" }?.let {
-                    val rOptionItem =
-                        withContext(Dispatchers.Default) { vm.getROption(it.optionId) }
-                    setScrappedUI(it, rOptionItem)
-                    scrappedReportItemBinding.root.setOnClickListener {
-                        gui.showWaringDialog("單報超允")
-                    }
-                    return@launch
-                }
 
                 scrappedReportItemBinding.root.setOnClickListener {
-                    scrappedAlert.myShow(supportFragmentManager, null, sPosition, null, null)
+                    scrappedAlert.myShow(
+                        supportFragmentManager,
+                        null,
+                        sPosition,
+                        null,
+                        null,
+                        P.station.toString()
+                    )
                 }
+
 
             }
         }
 
-        private suspend fun setScrappedUI(
-            dmcScrappedRecord: DmcScrappedRecord,
+        private fun setScrappedUI(
+//            dmcScrappedRecord: DmcScrappedRecord,
             rOptionItem: ROptionItem
         ) {
             scrappedReportItemBinding.tSC.isVisible = true
             scrappedReportItemBinding.tSTitle.isVisible = true
-            scrappedReportItemBinding.tSTitle.text = rOptionItem.title
-            scrappedReportItemBinding.tSC.text = rOptionItem.optNo
+            kotlin.runCatching {
+                scrappedReportItemBinding.tSTitle.text = rOptionItem.title
+                scrappedReportItemBinding.tSC.text = rOptionItem.optNo
+            }
             scrappedReportItemBinding.root.background = ContextCompat.getDrawable(
                 itemView.context,
-                if (dmcScrappedRecord.isUpload!!) R.drawable.red else R.drawable.green
+                R.drawable.red
             )
+
+//            scrappedReportItemBinding.root.background = ContextCompat.getDrawable(
+//                itemView.context,
+//                if (dmcScrappedRecord.isUpload!!) R.drawable.red else R.drawable.green
+//            )
         }
 
 
+    }
+
+    private val blueAlert by lazy {
+        BluetoothDialogAlert()
     }
 
     private fun setUpOptionClick() {
@@ -319,9 +440,32 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
         //批號搜搜尋
         optionItemBinding.bSearchPn.setOnClickListener { gui.showLnSearchAlert(this) }
         //測試用
-        optionItemBinding.bTestTest.setOnClickListener { vm.loadInitData(this) }
+        optionItemBinding.bTestTest.setOnClickListener {
+            val setDate = P.getAppCenterTime()
+            vm.loadInitData(setDate, this)
+        }
         //藍芽配對搜尋
-        optionItemBinding.bBlue.setOnClickListener { blue.alert.show() }
+        optionItemBinding.bBlue.setOnClickListener {
+            if (BluetoothAdapter.getDefaultAdapter() == null) {
+                gui.showWaringDialog("此裝置沒有藍芽!!!")
+                return@setOnClickListener
+            }
+            if (!BluetoothAdapter.getDefaultAdapter().isEnabled) {
+                gui.showWaringDialog("手機藍芽未開啟...請通知前言處請求協助(#72677)。")
+                return@setOnClickListener
+            }
+            //Android 版本 >= 9(P API 28) 藍芽配對時會觸發APP Lock ，顯示提示訊息!
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                AlertDialog.Builder(this)
+                    .setTitle("此手機因Android版本與資安政策要求下會造成藍芽配對的問題，如需協助請通知前言處(#72677)。")
+                    .setCancelable(false)
+                    .setPositiveButton("繼續") { dialogInterface: DialogInterface, i: Int ->
+                        blueAlert.show(supportFragmentManager, null)
+                    }.setNegativeButton("取消", null).show()
+            } else {
+                blueAlert.show(supportFragmentManager, null)
+            }
+        }
 
         //歷史紀錄
         optionItemBinding.bHistory.setOnClickListener {
@@ -330,7 +474,6 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                 return@setOnClickListener
             }
             historyDialogFragment.myShow(supportFragmentManager, null, P.dmcCode!!)
-//            registerScan.launch(Intent(P.scanActionName))sa
         }
 
         //上傳狀況
@@ -346,14 +489,15 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
             }
             MainScope().launch {
                 val list = vm.loadMissBrush(P.dmcCode!!, P.station.toString(), this@MainActivity)
-                list?.let {
+                onFinished()
+                list.let {
                     if (it.isNullOrEmpty()) {
                         Snackbar.make(mainBinding.root, "無漏刷", Snackbar.LENGTH_SHORT).show()
                     } else {
                         val s = it.map { "${it.lotId},${it.wpnl},${it.spnl}" }
                         AlertDialog.Builder(this@MainActivity)
                             .setTitle("漏刷清單")
-                            .setItems(s.toTypedArray(),null)
+                            .setItems(s.toTypedArray(), null)
                             .setCancelable(false)
                             .setPositiveButton(getString(R.string.ok), null)
                             .show()
@@ -425,21 +569,33 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                 vm.plateMutableLiveData.postValue(it)
             }
         }
+        Log.d("@@@test dep", "${AppCenter.depSn}")
 
-        //ttttttttestetet
-//        optionItemBinding.tPnDmc.setOnClickListener {
-//            vm.testUpload(this)
-//        }
-
-        //Station
+        //Station 站別
         vm.stationLiveData.observe(this) {
-            val sList = it.map { it.title }
+            val sList = when (AppCenter.depSn) {
+                60, 156 -> it.map { it.title }
+                AppCenter.depSn -> it.filter { AppCenter.depSn == it.depSn.toInt() }
+                    .map { it.title }
+                else -> null
+            }
+
+//            if(sList.isNullOrEmpty()){
+//                AlertDialog.Builder(this).setCancelable(false).setTitle("請檢查認證中心使用者登入資訊，系統檢測您無權限使用...")
+//                    .setPositiveButton("關閉"){ _: DialogInterface, _: Int ->
+//                        finish()
+//                    }
+//                    .show()
+//                return@observe
+//            }
+
             var index: Int = 0
             optionItemBinding.bStation.setOnClickListener { v ->
+
                 AlertDialog.Builder(this)
                     .setCancelable(false)
                     .setSingleChoiceItems(
-                        sList.toTypedArray(),
+                        sList!!.toTypedArray(),
                         index
                     ) { dialogInterface: DialogInterface, i: Int ->
                         index = i
@@ -453,52 +609,52 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                     .show()
             }
         }
-        //顯示面 預設 正面 背面
-        optionItemBinding.bDisplay.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setCancelable(false)
-                .setPositiveButton(getString(R.string.ok), null)
-                .setSingleChoiceItems(
-                    vm.displaySurface.toTypedArray(),
-                    P.display
-                ) { dialogInterface: DialogInterface, i: Int ->
-                    Log.d("@@@plateDisplay", vm.displaySurface[i])
-                    optionItemBinding.bDisplay.text = vm.displaySurface[i]
-                    P.display = i
-                }.show()
-        }
+
 
     }
 
     //權限 => 藍芽 儲存讀寫
     private fun requestPermission() {
-        registerPermission.launch(
-            arrayOf(
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.BLUETOOTH_ADMIN,
+        if (getSharedPreferences("setting", Context.MODE_PRIVATE).getBoolean(tempOpen, true))
+            registerPermission.launch(
+                arrayOf(
+                    Manifest.permission.BLUETOOTH,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.BLUETOOTH_ADMIN,
 //                Manifest.permission.BLUETOOTH_PRIVILEGED, //只有系統APP才可用
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                Manifest.permission.READ_EXTERNAL_STORAGE
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                )
             )
-        )
     }
 
-    //BlueToothAlert 藍芽裝置搜尋視窗
+
     //權限
     private val registerPermission =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
             Log.d("@@@Permission", "$it")
             val allTrue = it.values.all { it == true }
             if (allTrue) {
-                //取的權限 開始初始化讀資料
-                vm.loadInitData(this).invokeOnCompletion {
+                //取的權限後 開始初始化讀資料
+                val isFirstOpen = getSharedPreferences(
+                    "setting",
+                    Context.MODE_PRIVATE
+                ).getBoolean("isFirstOpen", true)
+                val setDate = if (isFirstOpen) "" else P.getAppCenterTime()
+                vm.loadInitData(setDate, this).invokeOnCompletion {
                     it?.let {
                         it.printStackTrace()
                         onError(null, Exception("初始化錯誤..."))
+                        //已上成功才算完成初始化( isFirstOpen = true )
+                        getSharedPreferences(
+                            "setting",
+                            Context.MODE_PRIVATE
+                        ).edit().putBoolean("isFirstOpen", false).apply()
                     }
-                    optionItemBinding.bStation.performClick()
+                    runOnUiThread {
+                        optionItemBinding.bStation.performClick()
+                    }
                 }
             } else {
                 Toast.makeText(this, getString(R.string.permission_dined_msg), Toast.LENGTH_SHORT)
@@ -514,7 +670,7 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
             if (it.resultCode == RESULT_OK) {
                 if (BluetoothAdapter.getDefaultAdapter() != null) {
                     //顯示掃描視窗
-                    blue.alert.show()
+//                    blue.alert.show()
                 } else
                     Toast.makeText(this, getString(R.string.no_bluetooth_msg), Toast.LENGTH_SHORT)
                         .show()
@@ -541,44 +697,14 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
         }
 
 
-    //藍芽
-    private val blue by lazy {
-        NBluetooth(this).apply {
-            val tempInt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) 4 else 4
-            bluetoothAdapter?.getProfileProxy(this@MainActivity, profileListener, tempInt)
-            blueCallback = myDeviceCallback
-            vm.scanedMutableLiveData.observe(this@MainActivity) {
-                setFoundDeviceList(it.toList())
-            }
-        }
-    }
+//    //登入
+//    private val registerAppCenter =
+//        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+//            if (it.resultCode == RESULT_OK) {
+//                Toast.makeText(this, "登入成功", Toast.LENGTH_SHORT).show()
+//            }
+//        }
 
-    //藍芽裝置Callback
-    private val myDeviceCallback = object : NBluetooth.DeviceCallBack {
-        override fun onDeviceFound(bluetoothDevice: BluetoothDevice) {
-            vm.filterAndUpdateBDevice(bluetoothDevice)
-        }
-
-        override fun onDeviceConnecting() {
-
-        }
-
-        override fun onDeviceConnect() {
-
-        }
-
-        override fun onDeviceDisconnect() {
-
-        }
-
-        //清空資料
-        override fun onClear() {
-            if (vm.mutableSetBDevice.isNullOrEmpty())
-                return
-            vm.mutableSetBDevice.clear()
-            vm.scanedMutableLiveData.postValue(vm.mutableSetBDevice)
-        }
-    }
 
     override fun onMenuItemClick(mi: MenuItem?): Boolean {
         Log.d("@@@onMenuItemClick", "${mi?.itemId?.let { resources.getResourceName(it) }}")
@@ -592,10 +718,23 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                 R.id.menu_offline -> (it.actionView as SwitchMaterial).performClick()
                 R.id.menu_action -> gui.showActionDebugChoiceAlert()
                 R.id.app_info -> gui.showAppInfoAlert() //手機資訊
+                R.id.data_refresh -> {
+                    val setDate = ""
+                    vm.loadInitData(setDate, this)
+                }
                 else -> null
             }
         }
         return true
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        /*if (newConfig.orientation === Configuration.ORIENTATION_LANDSCAPE) {
+            Toast.makeText(this, "landscape", Toast.LENGTH_SHORT).show()
+        } else if (newConfig.orientation === Configuration.ORIENTATION_PORTRAIT) {
+            Toast.makeText(this, "portrait", Toast.LENGTH_SHORT).show()
+        }*/
+        super.onConfigurationChanged(newConfig)
     }
 
     override fun onCheckedChanged(c: CompoundButton?, check: Boolean) {
@@ -614,7 +753,9 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
 
     //額外鍵盤裝置接收
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+
         event?.device?.let {
+
             val intChar = event.unicodeChar
             if (intChar == 0) return false
             inputStringBuffer.append(event.displayLabel)
@@ -630,20 +771,23 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
 
     override fun onStart() {
         super.onStart()
-        registerReceiver(blue.bReceiver, blue.intentFilter)
+        P.plateInfo?.let {
+            vm.plateMutableLiveData.postValue(it)
+        }
+        vm.clearData7()
+
 
     }
 
     override fun onStop() {
         super.onStop()
-        unregisterReceiver(blue.bReceiver)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         vm.deleteDmcRecord()
         vm.plateMutableLiveData.postValue(null)
-        blue.bluetoothAdapter?.closeProfileProxy(4,blue.bluetoothProfile)
+        vm.clearData7()
     }
 
 
@@ -660,14 +804,16 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
         }
     }
 
-    override fun onSetPlate(plateInfo: PlateInfo, dmc: String, infoId: String) {
+    override fun onSetPlate(pn: String, plateInfo: PlateInfo, dmc: String, infoId: String) {
         Log.d("@@@onSetPlate", "\nDMC: $dmc\nPlateInfo: $plateInfo")
+        P.pn = pn
+        P.plateInfo = plateInfo
         P.dmcCode = dmc
         P.infoId = infoId
         P.pSize = plateInfo.model
         runOnUiThread {
+            optionItemBinding.tPnDmc.text = "料號: ${plateInfo.pn}\n條碼: ${dmc.replace("\n", "")}"
             optionItemBinding.tAcceptQty.text = "允收數: ${plateInfo.allowAcceptQty}"
-            optionItemBinding.tPnDmc.text = "料號: ${plateInfo.pn}\n條碼: $dmc"
         }
         vm.plateMutableLiveData.postValue(plateInfo)
 
@@ -693,7 +839,7 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                         gui.showWaringDialog("💬上傳報廢紀錄錯誤:\n\n$it")
                     }
                 }
-                "star scan" ->{
+                "star scan" -> {
                     registerScan.launch(Intent(P.NIGHT_SCAN))
                 }
                 //到這通常都是耗時處理，所以show loading alert
@@ -725,5 +871,14 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
     }
 
 
+    override fun onSync() {
+        if (!P.isOffline) {
+            val uniqueWorkRequest = OneTimeWorkRequestBuilder<SyncWork>()
+                .build()
+            WorkManager.getInstance(this)
+                .beginUniqueWork("uniWorkForSync", ExistingWorkPolicy.KEEP, uniqueWorkRequest)
+                .enqueue()
+        }
+    }
 
 }

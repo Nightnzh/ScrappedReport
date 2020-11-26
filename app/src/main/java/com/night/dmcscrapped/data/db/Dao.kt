@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.room.*
 import androidx.room.Dao
 import com.night.dmcscrapped.data.model.*
+import com.night.dmcscrapped.data.model.net.BDevice
 
 @Dao
 interface Dao {
@@ -26,21 +27,24 @@ interface Dao {
     fun deleteAllDmcScrappedRecord()
     @Query("SELECT * FROM dmcScrappedRecord")
     fun getDmcScrappedRecordListLiveData() : LiveData<List<DmcScrappedRecord>>
-    @Query("SELECT * FROM dmcScrappedRecord WHERE isUpload = 0")
-    fun getUnUploadDmcRecord() : List<DmcScrappedRecord>
+//    @Query("SELECT * FROM dmcScrappedRecord WHERE isUpload = 0")
+//    fun getUnUploadDmcRecord() : List<DmcScrappedRecord>
     @Query("SELECT * FROM dmcScrappedRecord WHERE :position = position")
     fun getDmcRecord(position:String) : DmcScrappedRecord
-    @Query("DELETE FROM dmcScrappedRecord WHERE optionId = '225' OR optionId = '227'")
-    fun deleteScrappedWrnlSrnl()
+    @Query("DELETE FROM dmcScrappedRecord WHERE optionId = :optionId")
+    fun deleteScrappedReocrdByOptionId(optionId: String)
     @Delete
     fun deleteDmcRecord(dmcScrappedRecord: DmcScrappedRecord)
-    @Query("Update dmcScrappedRecord SET isUpload = 1 WHERE optionId = :optionId")
-    fun updateDmcScrappedWrnlSrnl(optionId: String)
+//    @Query("Update dmcScrappedRecord SET isUpload = 1 WHERE optionId = :optionId")
+//    fun updateDmcScrappedWrnlSrnl(optionId: String)
 
     //TODO:
     @Query("SELECT * FROM dmcScrappedRecord ")
     fun getRemoveDmcRecord() : List<DmcScrappedRecord>
 
+    //判斷超允用的
+    @Query("SELECT COUNT(*) FROM dmcScrappedRecord WHERE optionId != '224'")
+    fun getUpSize() : Int
 
     //Log
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -82,12 +86,33 @@ interface Dao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSnList(snList:SnList)
 
-    @Query("SELECT * FROM retirement_option as A LEFT JOIN optDep as B WHERE B.optSn = A.sn")
+    @Query("SELECT * FROM retirement_option as A LEFT JOIN optDep as B WHERE B.optSn = A.sn AND A.sn != '224'")
     fun getAllScrappedOption(): LiveData<List<ROptionItem>>
 
     //藍芽相關
     @Query("SELECT * FROM bluetoothDevice")
-    suspend fun getTrustBluetoothMacList(): List<BDevice>
+    fun getTrustBluetoothMacList(): List<BDevice>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTrustBDevice(listD:List<BDevice>)
+
+
+    @Query("SELECT COUNT(*) FROM log WHERE isUpload = 0")
+    fun getSyncCount() : LiveData<Int>
+
+    //判斷是否有未上傳資料
+    @Query("SELECT EXISTS(SELECT * FROM log WHERE isUpload = 0) ")
+    fun haveUploadRecord() : Boolean
+
+
+    //清除7天前資料
+    @Query("DELETE FROM log WHERE setDate < :setDate and isUpload = 1")
+    fun clearLog7(setDate : String)
+
+
+    //清除資料用
+//    @Transaction
+//    fun clearData(setDate: String){
+//
+//    }
+
 }

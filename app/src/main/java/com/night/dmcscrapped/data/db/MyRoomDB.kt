@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.night.dmcscrapped.data.model.*
+import com.night.dmcscrapped.data.model.net.BDevice
 
 @Database(entities = [
     BDevice::class,

@@ -1,4 +1,4 @@
-package com.night.dmcscrapped.data.model
+package com.night.dmcscrapped.data.model.net
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -25,6 +25,6 @@ data class BDevice(
     }
 
     fun connectWithOutPair(bluetoothDevice: BluetoothDevice){
-        bluetoothDevice.createInsecureRfcommSocketToServiceRecord(UUID.fromString("930d2d11-19d5-4d8a-9f7e-bb1160976467")).connect()
+        bluetoothDevice.createInsecureRfcommSocketToServiceRecord(bluetoothDevice.uuids[0].uuid).connect()
     }
 }

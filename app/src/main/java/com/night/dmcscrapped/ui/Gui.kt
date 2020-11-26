@@ -4,8 +4,11 @@ import android.content.Context
 import android.content.DialogInterface
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
+import android.widget.ImageView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.text.HtmlCompat
+import androidx.core.widget.ImageViewCompat
+import com.bumptech.glide.Glide
 import com.night.dmcscrapped.R
 import com.night.dmcscrapped.data.model.ActionDebug
 import com.night.dmcscrapped.databinding.LnSearchBinding
@@ -25,7 +28,7 @@ class Gui(private val context: Context) {
             .create()
     }
 
-    fun showWaringDialog(msg:String){
+    fun showWaringDialog(msg:CharSequence){
         waringDialog.setMessage(msg)
         waringDialog.show()
     }
@@ -108,9 +111,17 @@ class Gui(private val context: Context) {
 
     //APP info 免重覆顯示
     private val appInfoAlert by lazy {
+        "如有異常請通知開人員\n" +
+                "\t手機異常: 許証皓(#72677) \n" +
+                "\t資料異常: 簡德瑋(#72678)\n"
         AlertDialog.Builder(context)
             .setTitle("App Info")
-            .setMessage("如有異常請通知開人員:\n\t手機異常: 許証皓(#2677) \n\t資料異常: 簡德瑋(#2678)")
+            .setMessage(
+                """如有異常請通知開人員
+                    |手機異常: 許証皓(#72677) 
+                    |資料異常: 簡德瑋(#72678)
+                    |""".trimMargin()
+            )
             .create()
     }
 
@@ -131,7 +142,7 @@ class Gui(private val context: Context) {
         actionDebugAlert.show()
     }
 
-    //需重複顯示
+    //Action debug 需重複顯示
     fun showActionDebugAlert(actionDebug: ActionDebug) {
         val result = if(actionDebug.result.length>200) "${actionDebug.result.substring(0,200)}..." else actionDebug.result
         val s =
@@ -142,9 +153,10 @@ class Gui(private val context: Context) {
             .show()
     }
 
-    //需重複顯示
+    //Error 需重複顯示
     fun showErrorAlert(result:String?,e: Exception) {
-        val temp = "⚠Exception:\n\t${e.message}\n\n${result?.let { if(it.length> 200) result.substring(0,200) + "..." else it  } }"
+        val temp = if(result ==null) "⚠Exception:\n" +
+                "\t${e.message}" else "⚠Exception:\n\t${e.message}\n\n${result.let { if(it.length> 200) result.substring(0,200) + "..." else it  }}"
         AlertDialog.Builder(context)
             .setTitle(context.getString(R.string.error))
             .setMessage(temp)
@@ -152,4 +164,6 @@ class Gui(private val context: Context) {
             .setPositiveButton(context.getString(R.string.ok), null)
             .show()
     }
+
+
 }

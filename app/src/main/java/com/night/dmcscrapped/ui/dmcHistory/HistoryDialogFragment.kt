@@ -20,6 +20,8 @@ import com.night.dmcscrapped.databinding.DmcHistoryBinding
 import com.night.dmcscrapped.databinding.DmcHistoryItemBinding
 import com.night.dmcscrapped.units.OnStateCallback
 
+
+//歷史紀錄
 class HistoryDialogFragment(private val onStateCallback: OnStateCallback) : DialogFragment(){
 
     private val vm  by viewModels<HistoryVm>()

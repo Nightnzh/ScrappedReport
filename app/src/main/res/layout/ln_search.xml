@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:focusable="auto">
 
 
     <Spinner
@@ -24,7 +25,7 @@
         android:layout_marginTop="16dp"
         android:ems="10"
         android:imeOptions="flagNoExtractUi|flagNavigateNext|flagNoFullscreen|actionNext"
-        android:inputType="numberSigned"
+        android:inputType="text"
         android:maxLength="7"
         android:nextFocusForward="@id/e2"
         app:layout_constraintStart_toEndOf="@+id/spinner_type"

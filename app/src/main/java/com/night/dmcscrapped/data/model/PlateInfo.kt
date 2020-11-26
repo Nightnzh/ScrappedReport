@@ -21,3 +21,5 @@ data class PlateInfo(
     val setDate: String,
     val sn: String
 )
+
+

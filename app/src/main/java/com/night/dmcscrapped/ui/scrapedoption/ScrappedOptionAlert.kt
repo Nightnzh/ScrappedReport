@@ -11,6 +11,7 @@ import android.widget.RadioButton
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentManager
@@ -26,23 +27,20 @@ import com.night.dmcscrapped.data.model.ROptionItem
 import com.night.dmcscrapped.databinding.ScrappedOptionBinding
 import com.night.dmcscrapped.gen.P
 import com.night.dmcscrapped.units.OnStateCallback
+import kotlinx.coroutines.MainScope
 
 
 //報廢選項 Dialog 用fragment實踐模組化
-class ScrappedOptionAlert(private val onStateCallback: OnStateCallback) : DialogFragment(),
-    SearchView.OnQueryTextListener {
-
+class ScrappedOptionAlert(private val onStateCallback: OnStateCallback) : DialogFragment() {
 
     private lateinit var binding: ScrappedOptionBinding
     private lateinit var adapter: ScrappedOptionAdapter
     private val vm by viewModels<OptionViewModel>()
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setStyle(DialogFragment.STYLE_NORMAL, R.style.ThemeOverlay_MaterialComponents)
+        setStyle(STYLE_NORMAL, R.style.ThemeOverlay_MaterialComponents_Dark)
     }
-
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -54,14 +52,13 @@ class ScrappedOptionAlert(private val onStateCallback: OnStateCallback) : Dialog
         binding.scrappedReycler.layoutManager = GridLayoutManager(requireContext(), 3)
         adapter = ScrappedOptionAdapter()
         binding.scrappedReycler.adapter = ScrappedOptionAdapter()
-        binding.searchView.setOnQueryTextListener(this)
 
         //關閉Dialog
         binding.bScrappedCancel.setOnClickListener {
             dismiss()
         }
 
-        //新增報廢選向
+        //新增報廢選項
         binding.bScrappedOk.setOnClickListener {
             if (vm.optionItem == null) {
                 Toast.makeText(requireContext(), "未選擇任何報廢選項", Toast.LENGTH_SHORT).show()
@@ -73,7 +70,7 @@ class ScrappedOptionAlert(private val onStateCallback: OnStateCallback) : Dialog
                     return@setOnClickListener
                 }
             }
-            vm.setScrappedData(vm.dmcScrappedRecord,onStateCallback)
+            vm.setScrappedData(vm.dmcScrappedRecord, onStateCallback)
             dismiss()
 
         }
@@ -85,19 +82,68 @@ class ScrappedOptionAlert(private val onStateCallback: OnStateCallback) : Dialog
                 2 -> "反面"
                 else -> null
             }
+            val msgg = when (vm.dmcScrappedRecord!!.optionId) {
+                "225" -> "確定要刪除此片( Spnl )的片報紀錄?"
+                "227" -> "確定要刪除此片( Wpnl )的片報紀錄?"
+                else -> "確定要清除位置為 ${vm.nowPosition} 的( $msg )報廢紀錄?"
+            }
             AlertDialog.Builder(requireContext()).setCancelable(false).setTitle("⚠清除報廢選項")
-                .setMessage("確定要清除位置為[${vm.nowPosition}]的($msg)報廢紀錄?")
+                .setMessage(msgg)
                 .setPositiveButton(getString(R.string.ok)) { _, _ ->
                     dismiss()
-                    vm.setClearScrappedData(vm.nowPosition!!, onStateCallback)
+                    vm.setClearScrappedData(vm.dmcScrappedRecord!!, onStateCallback)
                 }.setNegativeButton(getString(R.string.cancel), null).show()
         }
 
-        vm.allScrappedOption.observe(this.viewLifecycleOwner) {
-            (binding.scrappedReycler.adapter as ScrappedOptionAdapter).sortedList.addAll(it)
+        vm.allScrappedOptionLive.observe(this) {optionList ->
+            val adapter =
+                (binding.scrappedReycler.adapter as ScrappedOptionAlert.ScrappedOptionAdapter)
+            binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                override fun onQueryTextSubmit(query: String?): Boolean {
+                    query?.let{
+                        adapter.sortedList.replaceAll(optionList)
+                    }
+                    return true
+                }
+
+                override fun onQueryTextChange(newText: String?): Boolean {
+                    when (newText) {
+                        "" -> {
+                            //不篩選
+                            adapter.sortedList.replaceAll(optionList)
+                        }
+                        else -> {
+                            val filterList =
+                                optionList.filter {
+                                    it.optNo.contains(newText!!) or it.title.contains(
+                                        newText
+                                    )
+                                }
+                            adapter.sortedList.replaceAll(filterList)
+                        }
+                    }
+                    return true
+                }
+            })
+            vm.station.observe(this){
+                when(it){
+                    "4" -> {
+                        if(adapter.sortedList != optionList.filter { it.sn == "225" || it.sn == "227"})
+                            adapter.sortedList.replaceAll(optionList.filter { it.sn == "225" || it.sn == "227"})
+                    }
+                    else -> {
+                        if(adapter.sortedList!= optionList)
+                            adapter.sortedList.replaceAll(optionList)
+                        //其他站暫時不篩選
+                    }
+                }
+            }
         }
+
+
         return binding.root
     }
+
 
     override fun setCancelable(cancelable: Boolean) {
         super.setCancelable(false)
@@ -148,7 +194,11 @@ class ScrappedOptionAlert(private val onStateCallback: OnStateCallback) : Dialog
             parent: ViewGroup,
             viewType: Int
         ): ScrappedOptionViewHolder {
-            val view = RadioButton(parent.context)
+
+            val view = RadioButton(parent.context).apply {
+                textSize = 25f
+                background = ContextCompat.getDrawable(parent.context, R.drawable.green)
+            }
             return ScrappedOptionViewHolder(view)
         }
 
@@ -164,14 +214,13 @@ class ScrappedOptionAlert(private val onStateCallback: OnStateCallback) : Dialog
         inner class ScrappedOptionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val radioButton = itemView as RadioButton
             fun binTo(rOptionItem: ROptionItem) {
+                val query = binding.searchView.query
+                val text = "${rOptionItem.optNo} ${rOptionItem.title}"
                 radioButton.text = "${rOptionItem.optNo} ${rOptionItem.title}"
                 //當下報廢選項
                 val isMatch = rOptionItem == vm.optionItem
                 radioButton.isChecked = isMatch
                 if (isMatch) {
-//                    Log.d("@@@isMatch", "$adapterPosition")
-                    binding.tNowOption.text = "${rOptionItem.optNo} ${rOptionItem.title}"
-//                    lastCheckPosition = adapterPosition
                 }
                 radioButton.setOnClickListener {
                     vm.optionItem = rOptionItem
@@ -193,62 +242,27 @@ class ScrappedOptionAlert(private val onStateCallback: OnStateCallback) : Dialog
         tag: String?,
         nowPosition: String,
         rOptionItem: ROptionItem?,
-        dmcScrappedRecord: DmcScrappedRecord?
+        dmcScrappedRecord: DmcScrappedRecord?,
+        station: String
     ) {
+        //判斷不同按別時課長協助
         super.showNow(fragmentManager, tag)
         vm.optionItem = rOptionItem
         vm.nowPosition = nowPosition
         binding.bScrappedClear.isVisible = false
         vm.dmcScrappedRecord = dmcScrappedRecord
         vm.optionItem?.let { binding.bScrappedClear.isVisible = true }
-        binding.searchView.setQuery("d::", true)
+        vm.station.postValue(station)
     }
 
-    override fun onQueryTextSubmit(query: String?): Boolean {
-        Log.d("@@@SearchView", "onQueryTextSubmit")
-        query?.let {
-            if(it == "d::"){
-                vm.allScrappedOption.value?.let {
-                    it.filter { it.depSn == P.dep.toString() }.also {
-                        (binding.scrappedReycler.adapter as ScrappedOptionAdapter).sortedList.replaceAll(it)
-                    }
-                }
-            }
-        }
-        return true
-    }
 
-    override fun onQueryTextChange(newText: String?): Boolean {
-        if (isVisible) {
-            newText?.let { newText ->
-                vm.allScrappedOption.value?.let {
-                    when(newText){
-                        "d::" -> {
-                            it.filter { it.depSn == P.dep.toString() }.also {
-                                (binding.scrappedReycler.adapter as ScrappedOptionAdapter).sortedList.replaceAll(it)
-                            }
-                        }
-                        "" ->{
-                            //不篩選
-                            (binding.scrappedReycler.adapter as ScrappedOptionAdapter).sortedList.replaceAll(it)
-                        }
-                        else -> {
-                            val filterList =
-                                it.filter { it.optNo.contains(newText) or it.title.contains(newText) }
-                            (binding.scrappedReycler.adapter as ScrappedOptionAdapter).sortedList.replaceAll(filterList)
-                        }
-                    }
-                }
-            }
-        }
-        return true
+    override fun onStart() {
+        super.onStart()
     }
 
     override fun onDismiss(dialog: DialogInterface) {
         super.onDismiss(dialog)
         binding.searchView.setQuery("", false)
         vm.optionItem = null
-        binding.tNowOption.text = ""
     }
-
 }

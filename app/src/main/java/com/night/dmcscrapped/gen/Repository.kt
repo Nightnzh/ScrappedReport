@@ -10,10 +10,7 @@ import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import com.night.dmcscrapped.data.db.MyRoomDB
 import com.night.dmcscrapped.data.model.*
-import com.night.dmcscrapped.data.model.net.MissBrush
-import com.night.dmcscrapped.data.model.net.Res
-import com.night.dmcscrapped.data.model.net.SyncRes
-import com.night.dmcscrapped.data.model.net.SyncScanInRes
+import com.night.dmcscrapped.data.model.net.*
 import com.night.dmcscrapped.units.NightUnit
 import com.night.dmcscrapped.units.OnStateCallback
 import org.json.JSONObject
@@ -26,79 +23,25 @@ class Repository(
     private val dao = MyRoomDB.getDatabase(context).dao()
 
     //-------------------------------------------------------
+    /**上傳錯誤訊息*/
 
+
+    //---------------------------------------------------
     /**上傳重要資料*/
-    //上傳清除報廢紀錄  **此功能限制線上才能使用
-    fun uploadClearDmcRecord(
-        dmcScrappedRecord: DmcScrappedRecord,
-        onStateCallback: OnStateCallback
-    ) {
-        val setDate = P.getAppCenterTime()
-        val data = JsonObject().apply {
-            addProperty("sn",dmcScrappedRecord.sn)
-            addProperty("infoId",dmcScrappedRecord.infoId)
-            addProperty("ln", dmcScrappedRecord.ln)
-            addProperty("position",dmcScrappedRecord.position)
-            addProperty("panel",dmcScrappedRecord.panel)
-            addProperty("optionId", dmcScrappedRecord.optionId)
-            addProperty("uSn", AppCenter.uSn)
-            addProperty("uName",AppCenter.uName)
-            addProperty("setDate", setDate)
-        }
-        val params = listOf(
-            "mac" to NetworkInformation.macAddress,
-            "data" to "[$data]"
-        )
-        val re = NightUnit.nRequest(context, P.ACTION_syncDataDel, params, onStateCallback)
-        re?.let {
-            try {
-                val res = Gson().fromJson(it, Res::class.java)
-                res.state?.let {
-                    if (it == "error") throw Exception(res.msg)
-                    else if (it == "okDel") {
-                        //與後端確認後刪除成功
-                        dao.insertLog(
-                            MyLog(
-                                null,
-//                                dmcScrappedRecord.sn!!,
-                                1,
-                                dmcScrappedRecord.infoId,
-                                dmcScrappedRecord.ln,
-                                dmcScrappedRecord.optionId,
-                                dmcScrappedRecord.panel,
-                                dmcScrappedRecord.position,
-                                setDate,
-                                AppCenter.uName,
-                                AppCenter.uSn.toString(),
-                                P.station.toString(),
-                                true,
-                                "上傳成功(刪除報廢選項)",
-                                P.isTest
-                            )
-                        )
-                        dao.deleteDmcRecord(dmcScrappedRecord)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                onStateCallback.onError(it,e)
-            }
-        }
-    }
 
-    fun uploadClearDmcScrappedRecord(onStateCallback: OnStateCallback){
+    fun uploadClearDmcScrappedRecord(onStateCallback: OnStateCallback? = null) {
         val mac = NetworkInformation.macAddress
         val logList = dao.getUnUploadLog(1)
         val data = logList.map {
             JsonObject().apply {
-                addProperty("sn",it.sn)
-                addProperty("infoId",it.infoId)
-                addProperty("ln", it.ln.replace("\n",""))
-                addProperty("position",it.position)
-                addProperty("panel",it.panel)
+                addProperty("sn", it.sn)
+                addProperty("infoId", it.infoId)
+                addProperty("ln", it.ln.replace("\n", ""))
+                addProperty("position", it.position)
+                addProperty("panel", it.panel)
                 addProperty("optionId", it.optionId)
                 addProperty("uSn", it.uSn)
-                addProperty("uName",it.uName)
+                addProperty("uName", it.uName)
                 addProperty("setDate", it.setDate)
             }.toString()
         }.joinToString()
@@ -106,12 +49,12 @@ class Repository(
             "mac" to mac,
             "data" to "[$data]"
         )
-        val re = NightUnit.nRequest(context,P.ACTION_syncDataDel,params, onStateCallback)
+        val re = NightUnit.nRequest(context, P.ACTION_syncDataDel, params, onStateCallback)
         re?.let {
             try {
                 val jo = JSONObject(it)
                 val state = jo.getString("state")
-                when(state){
+                when (state) {
                     "okDel" -> {
                         dao.insertLogList(logList.apply {
                             forEach {
@@ -128,19 +71,19 @@ class Repository(
                     }
                     else -> null
                 }
-            }catch (e:Exception){
+            } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it,e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
 
     //上傳報廢紀錄
-    fun uploadAddDmcScrappedRecord(onStateCallback: OnStateCallback) {
+    fun uploadAddDmcScrappedRecord(onStateCallback: OnStateCallback? = null) {
         val mac = NetworkInformation.macAddress
         //取得未上暫存傳資料
         val logList = dao.getUnUploadLog(0)
-        val dmcList = dao.getUnUploadDmcRecord()
+//        val dmcList = dao.getUnUploadDmcRecord()
 
         val data = logList.map {
             JSONObject(Gson().toJson(it)).apply {
@@ -165,14 +108,13 @@ class Repository(
                 }
 
                 snRes.snList.let {
-                    if(snRes.error.isNullOrEmpty()){
-                        dao.insertLogList(logList.apply { forEach {
-                            it.isUpload = true
-                            it.logState = "上傳成功"
-                        } })
-                        dao.insertDmcScrappedRecordList(dmcList.apply { forEach {
-                            it.isUpload = true
-                        } })
+                    if (snRes.error.isNullOrEmpty()) {
+                        dao.insertLogList(logList.apply {
+                            forEach {
+                                it.isUpload = true
+                                it.logState = "上傳成功"
+                            }
+                        })
                     } else {
                         snRes.error.forEach { errorSn ->
                             logList.find { it.sn.toString() == errorSn.sn }?.let {
@@ -185,16 +127,11 @@ class Repository(
                         val t = snRes.error.map { it.sn }
                         snRes.snList.filterNot {
                             t.contains(t.toString())
-                        }.forEach {i->
-                            logList.find { it.sn == i}?.let {
+                        }.forEach { i ->
+                            logList.find { it.sn == i }?.let {
                                 dao.insertLog(it.apply {
                                     isUpload = true
                                     logState = "上傳成功"
-                                })
-                            }
-                            dmcList.find { it.sSn == i }?.let {
-                                dao.insertDmcScrappedRecord(it.apply {
-                                    isUpload = true
                                 })
                             }
                         }
@@ -204,7 +141,7 @@ class Repository(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it, e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
@@ -214,28 +151,28 @@ class Repository(
      *
      * */
 
-    fun uploadWLScrappedRecord(onStateCallback: OnStateCallback){
+    fun uploadWLScrappedRecord(onStateCallback: OnStateCallback? = null) {
         val mac = NetworkInformation.macAddress
         val logList = dao.getUnUploadLog(3)
         val data = logList.map {
             JsonObject().apply {
-                addProperty("ln",it.ln.replace("\n",""))
-                addProperty("optionId",it.optionId)
-                addProperty("uSn",it.uSn)
-                addProperty("setDate",it.setDate)
-                addProperty("gSn",it.gSn)
+                addProperty("ln", it.ln.replace("\n", ""))
+                addProperty("optionId", it.optionId)
+                addProperty("uSn", it.uSn)
+                addProperty("setDate", it.setDate)
+                addProperty("gSn", it.gSn)
             }.toString()
         }.joinToString()
         val params = listOf(
             "mac" to mac,
             "data" to "[$data]"
         )
-        val re = NightUnit.nRequest(context,P.ACTION_syncPnlScrap,params, onStateCallback)
+        val re = NightUnit.nRequest(context, P.ACTION_syncPnlScrap, params, onStateCallback)
         re?.let {
             try {
                 val jo = JSONObject(it)
                 val state = jo.getString("state")
-                when(state){
+                when (state) {
                     "ok" -> {
                         dao.insertLogList(logList.apply {
                             forEach {
@@ -252,37 +189,38 @@ class Repository(
                         })
                         throw Exception(jo.getString("msg"))
                     }
+                    else -> null
                 }
-            }catch (e:Exception){
+            } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it,e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
 
-    fun uploadClearWLeScrappedRecord(onStateCallback: OnStateCallback){
+    fun uploadClearWLeScrappedRecord(onStateCallback: OnStateCallback? = null) {
         val mac = NetworkInformation.macAddress
         val logList = dao.getUnUploadLog(4)
         val data = logList.map {
             JsonObject().apply {
-                addProperty("ln",it.ln.replace("\n",""))
-                addProperty("optionId",it.optionId)
-                addProperty("uSn",it.uSn)
-                addProperty("setDate",it.setDate)
-                addProperty("gSn",it.gSn)
+                addProperty("ln", it.ln.replace("\n", ""))
+                addProperty("optionId", it.optionId)
+                addProperty("uSn", it.uSn)
+                addProperty("setDate", it.setDate)
+                addProperty("gSn", it.gSn)
             }.toString()
         }.joinToString()
         val params = listOf(
             "mac" to mac,
             "data" to "[$data]"
         )
-        val re = NightUnit.nRequest(context,P.ACTION_syncPnlScrap,params, onStateCallback)
+        val re = NightUnit.nRequest(context, P.ACTION_syncPnlScrapDel, params, onStateCallback)
         re?.let {
             try {
                 val jo = JSONObject(it)
                 val state = jo.getString("state")
-                when(state){
-                    "okDel" -> {
+                when (state) {
+                    "ok" -> {
                         dao.insertLogList(logList.apply {
                             forEach {
                                 it.isUpload = true
@@ -298,46 +236,46 @@ class Repository(
                         })
                         throw Exception(jo.getString("msg"))
                     }
+                    else -> null
                 }
-            }catch (e:Exception){
+            } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it,e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
 
 
-
     //上傳檢測紀錄(刷入)
-    fun uploadScanInRecord(onStateCallback: OnStateCallback){
+    fun uploadScanInRecord(onStateCallback: OnStateCallback? = null) {
         val list = dao.getUnUploadLog(2)
         val data = JsonArray().apply {
             list.forEach {
                 add(JsonObject().apply {
-                    addProperty("sn",it.sn)
-                    addProperty("ln",it.ln)
-                    addProperty("infoId",it.infoId)
-                    addProperty("uSn",it.uSn)
-                    addProperty("uName",it.uName)
-                    addProperty("setDate",it.setDate)
-                    addProperty("gSn",it.gSn)
+                    addProperty("sn", it.sn)
+                    addProperty("ln", it.ln)
+                    addProperty("infoId", it.infoId)
+                    addProperty("uSn", it.uSn)
+                    addProperty("uName", it.uName)
+                    addProperty("setDate", it.setDate)
+                    addProperty("gSn", it.gSn)
                 })
             }
-        }.toString().replace("\\n","")
+        }.toString().replace("\\n", "")
         val params = listOf(
             "data" to data
         )
-        val re = NightUnit.nRequest(context,P.ACTION_syncScanList,params,onStateCallback)
+        val re = NightUnit.nRequest(context, P.ACTION_syncScanList, params, onStateCallback)
         re?.let {
             try {
                 val scanInRes = Gson().fromJson(it, SyncScanInRes::class.java)
                 if (scanInRes.state == "error") {
-                    throw Exception( "上傳檢測紀錄失敗: ${scanInRes.msg}")
+                    throw Exception("上傳檢測紀錄失敗: ${scanInRes.msg}")
                 }
 
                 scanInRes.snList?.let {
                     val listInt = it.split(",").map { it.toInt() }
-                    if(listInt.size == list.size){
+                    if (listInt.size == list.size) {
                         list.forEach {
                             dao.insertLog(it.apply {
                                 isUpload = true
@@ -348,46 +286,53 @@ class Repository(
                 }
 
                 scanInRes.state?.let {
-                    if(it=="error"){
+                    if (it == "error") {
                         throw  Exception(scanInRes.msg)
                     }
                 }
 
-            }catch (e:Exception){
+            } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it,e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
 
     //漏刷檢查
-    fun missBrushCheck(dmc: String,gSn:String,onStateCallback: OnStateCallback) :List<MissBrush>?{
+    fun missBrushCheck(
+        dmc: String,
+        gSn: String,
+        onStateCallback: OnStateCallback? = null
+    ): List<MissBrush>? {
         val params = listOf(
             "ln" to dmc.split(",")[0],
             "gSn" to gSn
         )
-        val re = NightUnit.nRequest(context,P.ACTION_getMissList,params,onStateCallback)
+        val re = NightUnit.nRequest(context, P.ACTION_getMissList, params, onStateCallback)
         return re?.let {
             try {
                 val jo = JSONObject(it)
-                if(jo.has("state")) {
+                if (jo.has("state")) {
                     val state = jo.getString("state")
                     if (state == "error") {
                         throw Exception(jo.getString("msg"))
                     }
                 }
-                val missBrushList = Gson().fromJson<List<MissBrush>>(jo.getJSONArray("data").toString(),object :TypeToken<List<MissBrush>>(){}.type)
+                val missBrushList =
+                    Gson().fromJson<List<MissBrush>>(jo.getJSONArray("data").toString(),
+                        object : TypeToken<List<MissBrush>>() {}.type
+                    )
                 missBrushList
-            }catch (e:Exception){
+            } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it,e)
+                onStateCallback?.onError(it, e)
                 null
             }
         }
     }
 
     //批號查料號
-    suspend fun loadSingleReportData(dmc: String, onStateCallback: OnStateCallback) {
+    suspend fun loadDmcData(dmc: String, onStateCallback: OnStateCallback? = null) {
         val params = listOf(
             "dmc" to dmc
         )
@@ -400,19 +345,20 @@ class Repository(
                     throw Exception(re.msg)
                 }
                 //搜尋料號成功後載入單報資料
-                loadDmcSingleReportRecord(dmc, re.sn!!, onStateCallback)
+                loadDmcReportRecord(re.partNumber!!, dmc, re.sn!!, onStateCallback)
             } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it, e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
 
     //下載單報紀錄資料
-    private suspend fun loadDmcSingleReportRecord(
+    private suspend fun loadDmcReportRecord(
+        pn: String,
         ln: String,
         sn: String,
-        onStateCallback: OnStateCallback
+        onStateCallback: OnStateCallback? = null
     ) {
         val params = listOf(
             "ln" to ln
@@ -431,14 +377,16 @@ class Repository(
                 //先儲存已存在的紀錄
                 dao.setScrappedReport(lnSingleReportRecordList.apply {
                     forEach {
-                        it.isUpload = true
+                        it.pn = pn
+//                        it.isUpload = true
                         it.isTestData = P.isTest
                     }
                 })
-                //Insert刷入紀錄
+                //Insert刷入(檢測)紀錄
                 dao.insertLog(
                     MyLog(
                         null,
+                        pn,
 //                        null,
                         2,
                         infoId,
@@ -457,18 +405,21 @@ class Repository(
                 )
                 //取得設定UI需要的資料
                 val plate = dao.getPlate(sn)
+
+
+
                 //呼叫Callback 正式準備單報作業
-                onStateCallback.onSetPlate(plate, ln, infoId)
+                onStateCallback?.onSetPlate(pn, plate, ln, infoId)
             } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it, e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
 
     //---------------------------------------------------------------
     //讀取版件資訊(初始化)
-    suspend fun loadPlateInfo(setDate: String, onStateCallback: OnStateCallback) {
+    suspend fun loadPlateInfo(setDate: String, onStateCallback: OnStateCallback? = null) {
         val params = listOf(
             "setDate" to setDate, //null載全部資料
 //            "pn" to pn
@@ -487,13 +438,13 @@ class Repository(
                 dao.insertPlateInfoList(plateInfoList)
             } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it, e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
 
     //讀取選項
-    suspend fun loadOption(onStateCallback: OnStateCallback) {
+    suspend fun loadOption(onStateCallback: OnStateCallback? = null) {
         val result = NightUnit.nRequest(context, P.ACTION_getOptions, null, onStateCallback)
         result?.also {
             try {
@@ -505,29 +456,36 @@ class Repository(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it, e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
 
     //讀取站別
-    suspend fun loadStation(onStateCallback: OnStateCallback) {
+    suspend fun loadStation(onStateCallback: OnStateCallback? = null) {
         val result = NightUnit.nRequest(context, P.ACTION_loadGroup, null, onStateCallback)
         result?.let {
-            val jo = JSONObject(it)
-            val data = jo.getJSONArray("data")
-            val stationList = Gson().fromJson<List<Station>>(
-                data.toString(),
-                object : TypeToken<List<Station>>() {}.type
-            )
-            dao.insertStation(stationList)
+            try {
+
+
+                val jo = JSONObject(it)
+                val data = jo.getJSONArray("data")
+                val stationList = Gson().fromJson<List<Station>>(
+                    data.toString(),
+                    object : TypeToken<List<Station>>() {}.type
+                )
+                dao.insertStation(stationList)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onStateCallback?.onError(it,e)
+            }
         }
     }
 
     //讀取藍芽清單
     suspend fun loadBluetoothDeviceList(
         setDate: String,
-        onStateCallback: OnStateCallback
+        onStateCallback: OnStateCallback? = null
     ) {
         val params = listOf(
             "setDate" to setDate
@@ -540,7 +498,7 @@ class Repository(
                 dao.insertTrustBDevice(bdList)
             } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it, e)
+                onStateCallback?.onError(it, e)
             }
         }
     }
@@ -549,7 +507,7 @@ class Repository(
     suspend fun loadCheckPhoto(
         setDate: String,
         mac: String,
-        onStateCallback: OnStateCallback
+        onStateCallback: OnStateCallback? = null
     ) {
         val params = listOf(
             "setDate" to setDate,
@@ -567,12 +525,12 @@ class Repository(
                         )
                         loadDownloadPhotoZip(res.fileName, paramss, onStateCallback)
                     }
-                    "error" -> onStateCallback.onState("no new image setting", null)
+                    "error" -> onStateCallback?.onState("no new image setting", null)
                     else -> throw Exception(it)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback.onError(it, e)
+                onStateCallback?.onError(it, e)
                 null
             }
         }
@@ -586,7 +544,7 @@ class Repository(
     private fun loadDownloadPhotoZip(
         fileName: String,
         params: List<Pair<String, String>>,
-        onStateCallback: OnStateCallback
+        onStateCallback: OnStateCallback? = null
     ) {
         val result = NightUnit.downloadZip(context, P.ACTION_downloadPhoto, params, onStateCallback)
         result?.let {
@@ -599,14 +557,14 @@ class Repository(
                     errorRes.msg?.let { }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    onStateCallback.onError(null, e)
+                    onStateCallback?.onError(null, e)
                 }
             }
         }
     }
 
     //-----------------------我是分隔線-----net up local down
-    suspend fun getTrustBDMac() = dao.getTrustBluetoothMacList()
+    fun getTrustBDMac() = dao.getTrustBluetoothMacList()
     suspend fun getPlateInfo(sn: String) = dao.getPlate(sn)
     suspend fun getROption(optionId: String) = dao.getOption(optionId)
     fun getStation() = dao.getStationList()
@@ -614,7 +572,8 @@ class Repository(
     fun deleteDmcScrappedRecord() = dao.deleteAllDmcScrappedRecord()
     fun getAllScrappedOptionItem() = dao.getAllScrappedOption()
 
-    fun insertDmcRecordList(dmcRecordList : List<DmcScrappedRecord>) = dao.insertDmcScrappedRecordList(dmcRecordList)
+    fun insertDmcRecordList(dmcRecordList: List<DmcScrappedRecord>) =
+        dao.insertDmcScrappedRecordList(dmcRecordList)
 
     fun insertDmcRecord(dmcScrappedRecord: DmcScrappedRecord) =
         dao.insertDmcScrappedRecord(dmcScrappedRecord)
@@ -623,7 +582,8 @@ class Repository(
 
     fun deleteLog(myLog: MyLog) = dao.deleteLog(myLog)
 
-    fun deleteDmcRecord(dmcScrappedRecord: DmcScrappedRecord) = dao.deleteDmcRecord(dmcScrappedRecord)
+    fun deleteDmcRecord(dmcScrappedRecord: DmcScrappedRecord) =
+        dao.deleteDmcRecord(dmcScrappedRecord)
 
     fun getDmcRecordByPosition(position: String) = dao.getDmcRecord(position)
 
@@ -633,9 +593,9 @@ class Repository(
     private fun storageFile(
         fileName: String,
         data: ByteArray,
-        onStateCallback: OnStateCallback
+        onStateCallback: OnStateCallback? = null
     ): Boolean {
-        onStateCallback.onState("storageFile", "檔案儲存中...")
+        onStateCallback?.onState("storageFile", "檔案儲存中...")
         return try {
             context.openFileOutput(fileName, Context.MODE_PRIVATE).use {
                 it.write(data)
@@ -645,7 +605,7 @@ class Repository(
             true
         } catch (e: Exception) {
             e.printStackTrace()
-            onStateCallback.onError(null, e)
+            onStateCallback?.onError(null, e)
             false
         }
     }

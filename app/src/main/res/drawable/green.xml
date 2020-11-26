@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
 
-    <solid android:color="#33000000"/>
-    <stroke android:color="#FFDA22"
-        android:width="2dp"/>
-</shape>
+
+    <item android:top="-2dp" android:right="-2dp" android:left="-2dp">
+        <shape>
+            <solid android:color="@android:color/transparent" />
+            <stroke
+                android:dashGap="10px"
+                android:dashWidth="10px"
+                android:width="1dp"
+                android:color="#ADE" />
+        </shape>
+    </item>
+
+</layer-list>

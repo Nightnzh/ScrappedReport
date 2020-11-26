@@ -3,6 +3,7 @@ package com.night.dmcscrapped.ui.syncstate
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.work.WorkManager
 import com.night.dmcscrapped.data.db.MyRoomDB
 import com.night.dmcscrapped.data.model.MyLog
 import com.night.dmcscrapped.gen.Repository
@@ -23,6 +24,10 @@ class SyncVM(application: Application) : AndroidViewModel(application) {
     var dateList: List<String>? = null
     var selectedDate: String? = null
     var selectedState = 0
+
+    var canManulySync = true
+
+    val workInfo = WorkManager.getInstance(getApplication()).getWorkInfosForUniqueWorkLiveData("uniWorkForSync")
 
     fun filterItem(list: List<MyLog>, setDate: String?, state: Int): List<MyLog> {
         Log.d("@@@TestListBefore", "$list")
@@ -84,5 +89,6 @@ class SyncVM(application: Application) : AndroidViewModel(application) {
     fun delete(myLog: MyLog) = GlobalScope.launch(Dispatchers.Default) {
         repository.deleteLog(myLog)
     }
+
 
 }

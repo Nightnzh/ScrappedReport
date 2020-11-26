@@ -24,25 +24,25 @@ object NightUnit {
         context: Context,
         actionName: String,
         params: List<Pair<String, String>>?,
-        onStateCallback: OnStateCallback
+        onStateCallback: OnStateCallback? = null
     ): String? {
         //網路判斷
         //請求
 
         return try {
             if (!NetworkInformation.isConnected(context)) {
-                throw Exception("No Network")
+                throw Exception("No Network...")
             }
 
             if(actionName == P.ACTION_syncScanList) {
-                onStateCallback.onState("scanInLoading", null)
+                onStateCallback?.onState("scanInLoading", null)
             } else{
-                onStateCallback.onState("loading", "網路請求中...")
+                onStateCallback?.onState("loading", "請稍後...")
             }
             val (request, response, result) = P.getUrlByAndActionName(actionName)
                 .httpPost(params)
-                .timeout(10000)
-                .timeoutRead(20000)
+                .timeout(20000)
+//                .timeoutRead(20000)
                 .responseString(Charsets.UTF_8)
 
             Log.d(
@@ -66,13 +66,13 @@ object NightUnit {
                             params.toString(),
                             it
                         )
-                        onStateCallback.onActionDebug(actionDebug)
+                        onStateCallback?.onActionDebug(actionDebug)
                     }
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            onStateCallback.onError(null, e)
+            onStateCallback?.onError(null, e)
             null
         }
 
@@ -83,7 +83,7 @@ object NightUnit {
         context: Context,
         actionName: String,
         params: List<Pair<String, String>>?,
-        onStateCallback: OnStateCallback
+        onStateCallback: OnStateCallback? = null
     ): ByteArray? {
         //網路判斷
         //請求
@@ -91,11 +91,11 @@ object NightUnit {
             if (!NetworkInformation.isConnected(context)) {
                 throw Exception("No Network")
             }
-            onStateCallback.onState("loading", "網路請求中...")
+            onStateCallback?.onState("loading", "請稍後...")
             val (request, response, result) = P.getUrlByAndActionName(actionName)
                 .httpPost(params)
                 .timeout(10000)
-                .timeoutRead(20000)
+//                .timeoutRead(20000)
                 .response()
 
             Log.d(
@@ -119,13 +119,13 @@ object NightUnit {
                             params.toString(),
                             it.toString()
                         )
-                        onStateCallback.onActionDebug(actionDebug)
+                        onStateCallback?.onActionDebug(actionDebug)
                     }
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            onStateCallback.onError(null, e)
+            onStateCallback?.onError(null, e)
             null
         }
 
