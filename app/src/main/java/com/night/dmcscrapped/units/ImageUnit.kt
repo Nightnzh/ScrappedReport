@@ -28,7 +28,6 @@ object ImageUnit {
         var bitmap = BitmapFactory.decodeFile(file.path)
         bitmapOption.inJustDecodeBounds = false
         bitmapOption.inSampleSize = calculateInSampleSize(bitmapOption, screenWidth, screenHeight)
-
         bitmap = BitmapFactory.decodeFile(file.path, bitmapOption)
         bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height,null, false)
 
@@ -45,13 +44,13 @@ object ImageUnit {
         when(topBtm){
             0,1 ->{
                 bitmap = Bitmap.createBitmap(
-                    bitmap, x , y , bitmap.width - x - w -1, bitmap.height - y - h ,
+                    bitmap, x , y , bitmap.width - x - w, bitmap.height - y - h ,
                     null, false
                 )
             }
             2->{
                 bitmap = Bitmap.createBitmap(
-                    bitmap, w - 1, y -1, bitmap.width - w - x  -1, bitmap.height - y - h -1,
+                    bitmap, w , y, bitmap.width - w - x  , bitmap.height - y - h ,
                     null, false
                 )
             }

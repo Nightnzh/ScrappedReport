@@ -107,13 +107,23 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                 optionItemBinding.bTurnRight.visibility = View.VISIBLE
 
                 //750007E 不可再FQC-2貼上黑色貼紙
-                if (plateInfo.pn.contains("750007E")) {
-                    gui.showWaringDialog(
-                        HtmlCompat.fromHtml(
+                if (plateInfo.pn.contains("750007E") || P.station == 3) {
+                    if(vm.isShow750007E_PN_Waring_Msg) {
+                        val html = HtmlCompat.fromHtml(
                             "此類料號(<font color='#020887'>750007E</font>)在FQC-2站不可貼上黑色貼紙。<br><br> This PN item like <font color='#020887'>750007E</font> in 'FQC-2' station can't be labeled black sticker.",
                             HtmlCompat.FROM_HTML_MODE_COMPACT
                         )
-                    )
+                        AlertDialog.Builder(this)
+                            .setTitle("Warning")
+                            .setMessage(html)
+                            .setCancelable(false)
+                            .setPositiveButton("我知道了(I Know)",null)
+                            .setOnDismissListener {
+                                vm.isShow750007E_PN_Waring_Msg = false
+                            }
+                            .show()
+                    }
+
                     mainBinding.includeMain.includeOption.tWaringMsg.visibility = View.VISIBLE
                 } else {
                     mainBinding.includeMain.includeOption.tWaringMsg.visibility = View.GONE
@@ -408,7 +418,6 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
         }
 
         private fun setScrappedUI(
-//            dmcScrappedRecord: DmcScrappedRecord,
             rOptionItem: ROptionItem
         ) {
             scrappedReportItemBinding.tSC.isVisible = true
@@ -422,10 +431,7 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                 R.drawable.red
             )
 
-//            scrappedReportItemBinding.root.background = ContextCompat.getDrawable(
-//                itemView.context,
-//                if (dmcScrappedRecord.isUpload!!) R.drawable.red else R.drawable.green
-//            )
+
         }
 
 
@@ -442,7 +448,11 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
         //測試用
         optionItemBinding.bTestTest.setOnClickListener {
             val setDate = P.getAppCenterTime()
-            vm.loadInitData(setDate, this)
+            vm.loadInitData(setDate, this).invokeOnCompletion {
+                runOnUiThread {
+                    onFinished()
+                }
+            }
         }
         //藍芽配對搜尋
         optionItemBinding.bBlue.setOnClickListener {
@@ -636,6 +646,7 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
             Log.d("@@@Permission", "$it")
             val allTrue = it.values.all { it == true }
             if (allTrue) {
+//                onState("loading","初始化中...")
                 //取的權限後 開始初始化讀資料
                 val isFirstOpen = getSharedPreferences(
                     "setting",
@@ -646,16 +657,19 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                     it?.let {
                         it.printStackTrace()
                         onError(null, Exception("初始化錯誤..."))
-                        //已上成功才算完成初始化( isFirstOpen = true )
-                        getSharedPreferences(
-                            "setting",
-                            Context.MODE_PRIVATE
-                        ).edit().putBoolean("isFirstOpen", false).apply()
+                        return@invokeOnCompletion
                     }
+                    //已上成功才算完成初始化( isFirstOpen = true )
+                    getSharedPreferences(
+                        "setting",
+                        Context.MODE_PRIVATE
+                    ).edit().putBoolean("isFirstOpen", false).apply()
                     runOnUiThread {
                         optionItemBinding.bStation.performClick()
                     }
                 }
+                onFinished()
+
             } else {
                 Toast.makeText(this, getString(R.string.permission_dined_msg), Toast.LENGTH_SHORT)
                     .show()
@@ -719,8 +733,10 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                 R.id.menu_action -> gui.showActionDebugChoiceAlert()
                 R.id.app_info -> gui.showAppInfoAlert() //手機資訊
                 R.id.data_refresh -> {
+//                    onState("loading","資料更新中...")
                     val setDate = ""
                     vm.loadInitData(setDate, this)
+                    onFinished()
                 }
                 else -> null
             }
@@ -774,13 +790,12 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
         P.plateInfo?.let {
             vm.plateMutableLiveData.postValue(it)
         }
-        vm.clearData7()
-
-
+//        vm.clearData7()
     }
 
     override fun onStop() {
         super.onStop()
+        vm.isShow750007E_PN_Waring_Msg = true
     }
 
     override fun onDestroy() {
@@ -824,7 +839,7 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
 
     //My Interface
     override fun onState(state: String, msg: String?) {
-        Log.d("@@@OnStateCallback", "onState: $state $msg")
+//        Log.d("@@@OnStateCallback", "onState: $state $msg")
         runOnUiThread {
             when (state) {
                 "no new image setting" -> {
@@ -840,10 +855,17 @@ class MainActivity : AppCompatActivity(), OnStateCallback, MenuItem.OnMenuItemCl
                     }
                 }
                 "star scan" -> {
-                    registerScan.launch(Intent(P.NIGHT_SCAN))
+                    try {
+                        registerScan.launch(Intent(P.NIGHT_SCAN))
+                    } catch (e : Exception){
+                        gui.showWaringDialog("尚未安裝相機模組，請至認證中心下載安裝。")
+                    }
+                }
+                "progressRate" -> {
+                    runOnUiThread {  gui.showLoading(msg) }
                 }
                 //到這通常都是耗時處理，所以show loading alert
-                else -> gui.showLoading(msg)
+                else -> runOnUiThread {   gui.showLoading(msg) }
             }
         }
     }

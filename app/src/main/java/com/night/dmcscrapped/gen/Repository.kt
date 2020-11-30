@@ -29,7 +29,7 @@ class Repository(
     //---------------------------------------------------
     /**上傳重要資料*/
 
-    fun uploadClearDmcScrappedRecord(onStateCallback: OnStateCallback? = null) {
+    fun uploadClearDmcScrappedRecord(onStateCallback: OnStateCallback? = null): Boolean {
         val mac = NetworkInformation.macAddress
         val logList = dao.getUnUploadLog(1)
         val data = logList.map {
@@ -50,7 +50,7 @@ class Repository(
             "data" to "[$data]"
         )
         val re = NightUnit.nRequest(context, P.ACTION_syncDataDel, params, onStateCallback)
-        re?.let {
+        return re?.let {
             try {
                 val jo = JSONObject(it)
                 val state = jo.getString("state")
@@ -71,15 +71,17 @@ class Repository(
                     }
                     else -> null
                 }
+                return true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                return false
             }
-        }
+        } ?: false
     }
 
     //上傳報廢紀錄
-    fun uploadAddDmcScrappedRecord(onStateCallback: OnStateCallback? = null) {
+    fun uploadAddDmcScrappedRecord(onStateCallback: OnStateCallback? = null): Boolean {
         val mac = NetworkInformation.macAddress
         //取得未上暫存傳資料
         val logList = dao.getUnUploadLog(0)
@@ -98,7 +100,7 @@ class Repository(
             "data" to "[$data]"
         )
         val re = NightUnit.nRequest(context, P.ACTION_syncData, params, onStateCallback)
-        re?.let {
+        return re?.let {
             Log.d("@@@syncTest", "$it")
             //後端回傳
             try {
@@ -139,11 +141,13 @@ class Repository(
                     }
 
                 }
+                return true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                return false
             }
-        }
+        } ?: false
     }
 
     /**
@@ -151,7 +155,7 @@ class Repository(
      *
      * */
 
-    fun uploadWLScrappedRecord(onStateCallback: OnStateCallback? = null) {
+    fun uploadWLScrappedRecord(onStateCallback: OnStateCallback? = null): Boolean {
         val mac = NetworkInformation.macAddress
         val logList = dao.getUnUploadLog(3)
         val data = logList.map {
@@ -168,7 +172,7 @@ class Repository(
             "data" to "[$data]"
         )
         val re = NightUnit.nRequest(context, P.ACTION_syncPnlScrap, params, onStateCallback)
-        re?.let {
+        return re?.let {
             try {
                 val jo = JSONObject(it)
                 val state = jo.getString("state")
@@ -191,14 +195,16 @@ class Repository(
                     }
                     else -> null
                 }
+                return true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                return false
             }
-        }
+        } ?: false
     }
 
-    fun uploadClearWLeScrappedRecord(onStateCallback: OnStateCallback? = null) {
+    fun uploadClearWLeScrappedRecord(onStateCallback: OnStateCallback? = null): Boolean {
         val mac = NetworkInformation.macAddress
         val logList = dao.getUnUploadLog(4)
         val data = logList.map {
@@ -215,7 +221,7 @@ class Repository(
             "data" to "[$data]"
         )
         val re = NightUnit.nRequest(context, P.ACTION_syncPnlScrapDel, params, onStateCallback)
-        re?.let {
+        return re?.let {
             try {
                 val jo = JSONObject(it)
                 val state = jo.getString("state")
@@ -238,16 +244,18 @@ class Repository(
                     }
                     else -> null
                 }
+                return true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                return false
             }
-        }
+        } ?: false
     }
 
 
     //上傳檢測紀錄(刷入)
-    fun uploadScanInRecord(onStateCallback: OnStateCallback? = null) {
+    fun uploadScanInRecord(onStateCallback: OnStateCallback? = null): Boolean {
         val list = dao.getUnUploadLog(2)
         val data = JsonArray().apply {
             list.forEach {
@@ -266,7 +274,7 @@ class Repository(
             "data" to data
         )
         val re = NightUnit.nRequest(context, P.ACTION_syncScanList, params, onStateCallback)
-        re?.let {
+        return re?.let {
             try {
                 val scanInRes = Gson().fromJson(it, SyncScanInRes::class.java)
                 if (scanInRes.state == "error") {
@@ -290,12 +298,14 @@ class Repository(
                         throw  Exception(scanInRes.msg)
                     }
                 }
-
+                return true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                return false
+
             }
-        }
+        } ?: false
     }
 
     //漏刷檢查
@@ -319,7 +329,8 @@ class Repository(
                     }
                 }
                 val missBrushList =
-                    Gson().fromJson<List<MissBrush>>(jo.getJSONArray("data").toString(),
+                    Gson().fromJson<List<MissBrush>>(
+                        jo.getJSONArray("data").toString(),
                         object : TypeToken<List<MissBrush>>() {}.type
                     )
                 missBrushList
@@ -332,12 +343,12 @@ class Repository(
     }
 
     //批號查料號
-    suspend fun loadDmcData(dmc: String, onStateCallback: OnStateCallback? = null) {
+    suspend fun loadDmcData(dmc: String, onStateCallback: OnStateCallback? = null): Boolean {
         val params = listOf(
             "dmc" to dmc
         )
         val result = NightUnit.nRequest(context, P.ACTION_searchPN, params, onStateCallback)
-        result?.let {
+        return result?.let {
             try {
                 val re = Gson().fromJson(it, Res::class.java)
                 //發生錯誤(後端回報錯誤)
@@ -346,11 +357,13 @@ class Repository(
                 }
                 //搜尋料號成功後載入單報資料
                 loadDmcReportRecord(re.partNumber!!, dmc, re.sn!!, onStateCallback)
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                false
             }
-        }
+        } ?: false
     }
 
     //下載單報紀錄資料
@@ -359,12 +372,12 @@ class Repository(
         ln: String,
         sn: String,
         onStateCallback: OnStateCallback? = null
-    ) {
+    ) : Boolean {
         val params = listOf(
             "ln" to ln
         )
         val result = NightUnit.nRequest(context, P.ACTION_downloadRecord, params, onStateCallback)
-        result?.let {
+        return result?.let {
             try {
                 val jo = JSONObject(it)
                 val infoId = jo.getString("infoId")
@@ -405,27 +418,26 @@ class Repository(
                 )
                 //取得設定UI需要的資料
                 val plate = dao.getPlate(sn)
-
-
-
                 //呼叫Callback 正式準備單報作業
                 onStateCallback?.onSetPlate(pn, plate, ln, infoId)
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                false
             }
-        }
+        } ?: false
     }
 
     //---------------------------------------------------------------
     //讀取版件資訊(初始化)
-    suspend fun loadPlateInfo(setDate: String, onStateCallback: OnStateCallback? = null) {
+    suspend fun loadPlateInfo(setDate: String, onStateCallback: OnStateCallback? = null): Boolean {
         val params = listOf(
             "setDate" to setDate, //null載全部資料
 //            "pn" to pn
         )
         val result = NightUnit.nRequest(context, P.ACTION_loadPnList, params, onStateCallback)
-        result?.let {
+        return result?.let {
             try {
                 val jo = JSONObject(it)
                 val data = jo.getJSONArray("data")
@@ -436,38 +448,41 @@ class Repository(
                 //板件資料為空
 //                if (plateInfoList.isNullOrEmpty()) throw Exception("板件資料為空")
                 dao.insertPlateInfoList(plateInfoList)
+                return true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                return false
             }
-        }
+        } ?: false
+
     }
 
     //讀取選項
-    suspend fun loadOption(onStateCallback: OnStateCallback? = null) {
+    suspend fun loadOption(onStateCallback: OnStateCallback? = null): Boolean {
         val result = NightUnit.nRequest(context, P.ACTION_getOptions, null, onStateCallback)
-        result?.also {
-            try {
+        return result?.let {
+            return try {
                 val rOption = Gson().fromJson(it, ROption::class.java)
                 rOption.also { ro ->
                     dao.insertOption(ro.option)
                     dao.insertOptDep(ro.optDep)
                     dao.insertSnList(SnList(0, ro.snList))
                 }
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                false
             }
-        }
+        } ?: false
     }
 
     //讀取站別
-    suspend fun loadStation(onStateCallback: OnStateCallback? = null) {
+    suspend fun loadStation(onStateCallback: OnStateCallback? = null): Boolean {
         val result = NightUnit.nRequest(context, P.ACTION_loadGroup, null, onStateCallback)
-        result?.let {
-            try {
-
-
+        return result?.let {
+            return try {
                 val jo = JSONObject(it)
                 val data = jo.getJSONArray("data")
                 val stationList = Gson().fromJson<List<Station>>(
@@ -475,32 +490,36 @@ class Repository(
                     object : TypeToken<List<Station>>() {}.type
                 )
                 dao.insertStation(stationList)
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
-                onStateCallback?.onError(it,e)
+                onStateCallback?.onError(it, e)
+                false
             }
-        }
+        } ?: false
     }
 
     //讀取藍芽清單
     suspend fun loadBluetoothDeviceList(
         setDate: String,
         onStateCallback: OnStateCallback? = null
-    ) {
+    ): Boolean {
         val params = listOf(
             "setDate" to setDate
         )
         val result = NightUnit.nRequest(context, P.ACTION_downloadDevice, params, onStateCallback)
-        result?.also {
-            try {
+        return result?.let {
+            return try {
                 val bdList =
                     Gson().fromJson<List<BDevice>>(it, object : TypeToken<List<BDevice>>() {}.type)
                 dao.insertTrustBDevice(bdList)
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
+                false
             }
-        }
+        } ?: false
     }
 
     //讀取下載圖檔路件
@@ -523,15 +542,16 @@ class Repository(
                             "fName" to res.fileName!!,
                             "fPath" to res.path!!
                         )
-                        loadDownloadPhotoZip(res.fileName, paramss, onStateCallback)
+                         loadDownloadPhotoZip(res.fileName, paramss, onStateCallback)
                     }
                     "error" -> onStateCallback?.onState("no new image setting", null)
                     else -> throw Exception(it)
                 }
+
             } catch (e: Exception) {
                 e.printStackTrace()
                 onStateCallback?.onError(it, e)
-                null
+
             }
         }
     }
@@ -545,11 +565,12 @@ class Repository(
         fileName: String,
         params: List<Pair<String, String>>,
         onStateCallback: OnStateCallback? = null
-    ) {
+    ): Boolean {
         val result = NightUnit.downloadZip(context, P.ACTION_downloadPhoto, params, onStateCallback)
-        result?.let {
-            try {
+        return result?.let {
+            return try {
                 storageFile(fileName, it, onStateCallback)
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
                 try {
@@ -559,8 +580,9 @@ class Repository(
                     e.printStackTrace()
                     onStateCallback?.onError(null, e)
                 }
+                false
             }
-        }
+        } ?: false
     }
 
     //-----------------------我是分隔線-----net up local down

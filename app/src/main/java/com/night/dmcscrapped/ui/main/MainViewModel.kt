@@ -21,6 +21,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = Repository(application)
 
 
+    //第1次為750007E 在FQC-2站不可貼上黑貼紙
+    var isShow750007E_PN_Waring_Msg = true
+
     init {
         AppCenter.init(application)
         NetworkInformation.init(application)
@@ -48,46 +51,68 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val scanedMutableLiveData = MutableLiveData(mutableSetBDevice)
 
 
-    //初始化資料(後端)
+    //初始化資料(後端要資料)
     fun loadInitData(setDate: String, onStateCallback: OnStateCallback) =
         viewModelScope.launch(Dispatchers.IO) {
-            //判斷484第一次開啟App
-
-//        Log.d("@@@isFirstOpen", isFirstOpen.toString())
-
-
-//        val setDate = if (isFirstOpen) "" else P.getAppCenterTime()
             val mac = NetworkInformation.macAddress
 
-            launch {
-                repository.loadPlateInfo(
-                    setDate,
-                    onStateCallback
-                )
-            }.join()
-            launch {
-                repository.loadOption(
-                    onStateCallback
-                )
-            }.join()
-            launch {
-                repository.loadStation(
-                    onStateCallback
-                )
-            }.join()
-            launch {
-                repository.loadBluetoothDeviceList(
-                    setDate,
-                    onStateCallback
-                )
-            }.join()
-            launch {
-                repository.loadCheckPhoto(
-                    setDate,
-                    mac,
-                    onStateCallback
-                )
-            }.join()
+
+
+            val t = repository.loadPlateInfo(
+                setDate,
+                onStateCallback
+            ).also {
+                Log.d("@@@loadPlateInfo","$it" )
+                if(!it) {
+                    cancel("讀取資料失敗")
+                    onStateCallback.onFinished()
+                    return@launch
+                }
+
+            }
+
+            repository.loadOption(
+                onStateCallback
+            ).also {
+                Log.d("@@@loadOption","$it" )
+                if(!it) {
+                    cancel("讀取資料失敗")
+                    onStateCallback.onFinished()
+                    return@launch
+                }
+            }
+
+
+            repository.loadStation(
+                onStateCallback
+            ).also {
+                Log.d("@@@loadStation","$it" )
+                if(!it){
+                    cancel("讀取資料失敗")
+                    onStateCallback.onFinished()
+                    return@launch
+                }
+            }
+
+
+            repository.loadBluetoothDeviceList(
+                setDate,
+                onStateCallback
+            ).also {
+                Log.d("@@@loadBluetoothDeviceList","$it" )
+                if(!it){
+                    cancel("讀取資料失敗")
+                    onStateCallback.onFinished()
+                    return@launch
+                }
+            }
+
+
+            repository.loadCheckPhoto(
+                setDate,
+                mac,
+                onStateCallback
+            )
 
             onStateCallback.onFinished()
         }
@@ -163,7 +188,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 
-    //機算7天前的日期做資料刪除
+    //計算7天前的日期做資料刪除
     fun clearData7() = GlobalScope.launch(Dispatchers.Default) {
         try {
             val minus7DaysDate = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss")

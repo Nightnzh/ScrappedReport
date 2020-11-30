@@ -79,10 +79,10 @@ class SyncStateDialogFragment(private val onStateCallback: OnStateCallback) : Di
         }
 
         vm.rOptionLiveData.observe(viewLifecycleOwner){
-
+            (binding.recyclerView2.adapter as SyncStateAdapter).notifyDataSetChanged()
         }
         vm.stateLiveData.observe(viewLifecycleOwner) {
-
+            (binding.recyclerView2.adapter as SyncStateAdapter).notifyDataSetChanged()
         }
         return binding.root
     }

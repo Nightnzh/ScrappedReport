@@ -51,12 +51,12 @@ class Gui(private val context: Context) {
 
     private val lnSearchAlert by lazy {
         AlertDialog.Builder(context)
-            .setTitle("PN Search")
+            .setTitle("搜尋視窗")
             .setCancelable(false)
             .setView(lnSearchBinding.root)
-            .setPositiveButton(context.getString(R.string.search),null)
-            .setNegativeButton(context.getString(R.string.cancel),null)
-            .setNeutralButton(context.getString(R.string.clear),null)
+            .setPositiveButton("搜尋",null)
+            .setNegativeButton("取消",null)
+            .setNeutralButton("清除",null)
             .create()
     }
 
@@ -111,16 +111,16 @@ class Gui(private val context: Context) {
 
     //APP info 免重覆顯示
     private val appInfoAlert by lazy {
-        "如有異常請通知開人員\n" +
-                "\t手機異常: 許証皓(#72677) \n" +
-                "\t資料異常: 簡德瑋(#72678)\n"
+
         AlertDialog.Builder(context)
             .setTitle("App Info")
             .setMessage(
-                """如有異常請通知開人員
-                    |手機異常: 許証皓(#72677) 
-                    |資料異常: 簡德瑋(#72678)
-                    |""".trimMargin()
+                """|●上傳狀況會保留7天內的紀錄
+                   |
+                   |如有異常請通知開發人員
+                   |    手機異常: 許証皓(#72677) 
+                   |    資料異常: 簡德瑋(#72678)
+                   |""".trimMargin()
             )
             .create()
     }

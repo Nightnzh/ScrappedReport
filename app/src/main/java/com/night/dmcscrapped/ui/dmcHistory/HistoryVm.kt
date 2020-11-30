@@ -12,9 +12,7 @@ import com.night.dmcscrapped.data.model.net.DmcHistory
 import com.night.dmcscrapped.gen.P
 import com.night.dmcscrapped.units.NightUnit
 import com.night.dmcscrapped.units.OnStateCallback
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import org.json.JSONObject
 import kotlin.Exception
 
@@ -24,7 +22,7 @@ class HistoryVm(application: Application) : AndroidViewModel(application) {
     var listDmcHistory : List<DmcHistory>? = null
     val history = MutableLiveData<List<DmcHistory>?>(null)
 
-    fun getDmcHistory(dmc:String , onStateCallback: OnStateCallback) = GlobalScope.launch(Dispatchers.Default){
+    fun getDmcHistory(dmc:String , onStateCallback: OnStateCallback) = MainScope().launch(Dispatchers.Default){
         val params = listOf(
             "ln" to dmc.replace("\n","")
         )
@@ -38,8 +36,6 @@ class HistoryVm(application: Application) : AndroidViewModel(application) {
             }catch (e:Exception){
                 e.printStackTrace()
                 onStateCallback.onError(it,e)
-            } finally {
-                onStateCallback.onFinished()
             }
         }
     }

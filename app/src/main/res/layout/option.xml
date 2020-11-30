@@ -46,7 +46,7 @@
         android:shadowDx="2"
         android:shadowDy="2"
         android:shadowRadius="1"
-        android:text="此料號不可貼上黑色貼紙\nThis PN can't be labeled by the black sticker."
+        android:text="此料號在此站(FQC-2)不可貼上黑色貼紙\nThis PN can't be labeled  the black sticker at FQC-2 station."
         android:textAllCaps="false"
         android:textAppearance="@style/TextAppearance.AppCompat.Medium"
         android:textColor="#FF0000"

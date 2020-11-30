@@ -8,7 +8,7 @@ import com.night.dmcscrapped.data.model.ROptionItem
 class P {
     companion object {
 
-        var isTest = false //測試模式
+        var isTest = false // true -> 測試模式
 
         var isOffline = false  //離線
 

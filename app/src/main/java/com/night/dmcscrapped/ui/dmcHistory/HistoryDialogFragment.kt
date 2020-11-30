@@ -54,7 +54,9 @@ class HistoryDialogFragment(private val onStateCallback: OnStateCallback) : Dial
         binding.bRefresh.setOnClickListener {
             vm.listDmcHistory = null
             vm.history.postValue(vm.listDmcHistory)
-            vm.getDmcHistory(vm.dmc!!,onStateCallback)
+            vm.getDmcHistory(vm.dmc!!,onStateCallback).invokeOnCompletion {
+                onStateCallback.onFinished()
+            }
         }
 
         return binding.root
@@ -102,7 +104,9 @@ class HistoryDialogFragment(private val onStateCallback: OnStateCallback) : Dial
         super.showNow(fragmentManager,tag)
         binding.tDmcCode.text = dmc.replace("\n","")
         vm.dmc = dmc
-        vm.getDmcHistory(vm.dmc!!,onStateCallback)
+        vm.getDmcHistory(vm.dmc!!,onStateCallback).invokeOnCompletion {
+            onStateCallback.onFinished()
+        }
     }
 
     override fun onDismiss(dialog: DialogInterface) {

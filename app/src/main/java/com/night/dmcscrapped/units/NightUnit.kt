@@ -34,14 +34,15 @@ object NightUnit {
                 throw Exception("No Network...")
             }
 
-            if(actionName == P.ACTION_syncScanList) {
+            if (actionName == P.ACTION_syncScanList) {
                 onStateCallback?.onState("scanInLoading", null)
-            } else{
+            } else {
                 onStateCallback?.onState("loading", "請稍後...")
             }
+
             val (request, response, result) = P.getUrlByAndActionName(actionName)
                 .httpPost(params)
-                .timeout(20000)
+//                .timeout(60000)
 //                .timeoutRead(20000)
                 .responseString(Charsets.UTF_8)
 
@@ -49,9 +50,6 @@ object NightUnit {
                 "@@@request",
                 "${P.getUrlByAndActionName(actionName)}\n\n params:$params \n\n ${result.component1()}"
             )
-//            Log.d("@@@Request", request.toString())
-//            Log.d("@@@Response", response.toString())
-//            Log.d("@@@Result", result.toString())
             //發生錯誤
             result.component2()?.let {
                 throw it
@@ -94,9 +92,17 @@ object NightUnit {
             onStateCallback?.onState("loading", "請稍後...")
             val (request, response, result) = P.getUrlByAndActionName(actionName)
                 .httpPost(params)
-                .timeout(10000)
-//                .timeoutRead(20000)
+                .timeout(60000)
+                .responseProgress { readBytes, totalBytes ->
+//                    Log.d("@@@TESTTTT", "$readBytes $totalBytes")
+                    val msg = "下載資源檔中(${(readBytes*100/totalBytes).toInt()}%)..."
+                    onStateCallback?.onState("progressRate",msg)
+
+                }
+//                .timeoutRead(60000)
                 .response()
+
+//            Log.d("@@@result","${result.get()}" )
 
             Log.d(
                 "@@@request",
@@ -171,7 +177,7 @@ object NightUnit {
 
 
     //Plate 正面選轉ㄒㄩㄝ
- fun changePcs(model:String,pcs:String,display:Int,displayDegree:Int): String {
+    fun changePcs(model: String, pcs: String, display: Int, displayDegree: Int): String {
 
         var wh = model.split("*").map { it.toInt() }
 //        println("@@@$wh")
@@ -180,21 +186,21 @@ object NightUnit {
         var map = ArrayList<ArrayList<Int>>()
 //        map.add(intArrayOf(4,3))
 
-        for( i in 0 until wh[1]){
+        for (i in 0 until wh[1]) {
             map.add(arrayListOf())
-            for(j in 0 until wh[0]){
-                map[i].add(pcsAry[i*wh[0]+j])
+            for (j in 0 until wh[0]) {
+                map[i].add(pcsAry[i * wh[0] + j])
             }
         }
 
-        when(displayDegree){
-            90 ->{
+        when (displayDegree) {
+            90 -> {
                 wh = wh.reversed()
                 val newMap = ArrayList<ArrayList<Int>>()
-                for(i in 0 until wh[1]){
+                for (i in 0 until wh[1]) {
                     newMap.add(arrayListOf())
-                    var k = wh[0]-1
-                    for(j in 0..k){
+                    var k = wh[0] - 1
+                    for (j in 0..k) {
                         newMap[i].add(map[k][i])
                         k--
                     }
@@ -212,11 +218,11 @@ object NightUnit {
             270 -> {
                 wh = wh.reversed()
                 val newMap = ArrayList<ArrayList<Int>>()
-                var k = wh[1]-1
+                var k = wh[1] - 1
 
-                for(i in 0..k){
+                for (i in 0..k) {
                     newMap.add(arrayListOf())
-                    for (j in 0 until wh[0]){
+                    for (j in 0 until wh[0]) {
                         newMap[i].add(map[j][k])
                     }
                     k--
@@ -225,17 +231,18 @@ object NightUnit {
             }
         }
 
-        if(display == 2){
+        if (display == 2) {
             map.apply {
-                map{
+                map {
                     it.reverse()
                 }
             }
         }
 
-        val out = map.map { it.joinToString { it.toString() } }.joinToString { "$it" }.replace(" ","")
+        val out =
+            map.map { it.joinToString { it.toString() } }.joinToString { "$it" }.replace(" ", "")
 
-        return  out
+        return out
     }
 }
 
